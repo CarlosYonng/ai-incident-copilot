@@ -21,6 +21,17 @@ Content-Type: application/json
 ### 查询 Workflow 节点
 GET http://localhost:8080/api/workflows/1/nodes
 
+### 查询 Incident 列表
+GET http://localhost:8080/api/incidents
+
+### 查询 Incident 详情
+GET http://localhost:8080/api/incidents/1
+
+### 查询 Workflow 实例
+GET http://localhost:8080/api/workflows/1
+
+### 以下为后续 Day 5 / Day 7 接口，当前阶段尚未实现
+
 ### 查询处置方案
 GET http://localhost:8080/api/incidents/1/actions
 
@@ -53,4 +64,3 @@ Content-Type: application/json
   "closedBy": "demo-user",
   "comment": "指标恢复，复盘已生成"
 }
-
