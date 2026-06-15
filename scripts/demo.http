@@ -1,0 +1,56 @@
+### 创建支付回调超时 Incident
+POST http://localhost:8080/api/incidents
+Content-Type: application/json
+
+{
+  "title": "payment-service 支付回调超时",
+  "serviceName": "payment-service",
+  "endpoint": "/api/payment/callback",
+  "source": "DEMO",
+  "traceId": "trace-payment-timeout-001",
+  "exceptionType": "TimeoutError",
+  "summary": "5 分钟内 500 错误率升高，p95 延迟升至 3200ms"
+}
+
+### 启动 Workflow
+POST http://localhost:8080/api/incidents/1/start-workflow
+Content-Type: application/json
+
+{}
+
+### 查询 Workflow 节点
+GET http://localhost:8080/api/workflows/1/nodes
+
+### 查询处置方案
+GET http://localhost:8080/api/incidents/1/actions
+
+### 标记线下已执行
+POST http://localhost:8080/api/actions/1/mark-offline-executed
+Content-Type: application/json
+
+{
+  "executor": "sre-demo",
+  "resultDetail": "已在线下通过值班系统开启延迟重试，本系统只记录处理结果"
+}
+
+### 查询模拟指标
+GET http://localhost:8080/api/demo/metrics/1
+
+### 生成复盘
+POST http://localhost:8080/api/incidents/1/generate-postmortem
+Content-Type: application/json
+
+{}
+
+### 查询复盘
+GET http://localhost:8080/api/incidents/1/postmortem
+
+### 关闭 Incident
+POST http://localhost:8080/api/incidents/1/close
+Content-Type: application/json
+
+{
+  "closedBy": "demo-user",
+  "comment": "指标恢复，复盘已生成"
+}
+

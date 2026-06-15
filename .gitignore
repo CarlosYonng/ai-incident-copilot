@@ -1,0 +1,26 @@
+# macOS / IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Logs
+*.log
+logs/
+
+# Java / Spring Boot
+target/
+build/
+*.class
+
+# Node / frontend
+node_modules/
+dist/
+.vite/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Runtime data
+mysql-data/

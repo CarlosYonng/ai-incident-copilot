@@ -1,0 +1,63 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: incident-copilot-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: incident_copilot
+      MYSQL_USER: incident
+      MYSQL_PASSWORD: incident
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+
+  diagnosis-service:
+    build:
+      context: ../diagnosis-service
+    container_name: diagnosis-service
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: sqlite:///data/diagnosis.db
+
+  demo-service:
+    build:
+      context: ../diagnosis-service
+    container_name: demo-service
+    command: ["python", "-m", "demo_service"]
+    ports:
+      - "8001:8001"
+    depends_on:
+      - diagnosis-service
+
+  incident-copilot-backend:
+    build:
+      context: ./backend
+    container_name: incident-copilot-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/incident_copilot?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: incident
+      SPRING_DATASOURCE_PASSWORD: incident
+      DIAGNOSIS_MCP_BASE_URL: http://diagnosis-service:8000
+    depends_on:
+      - mysql
+      - diagnosis-service
+
+  incident-copilot-frontend:
+    build:
+      context: ./frontend
+    container_name: incident-copilot-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_BASE_URL: http://localhost:8080/api
+    depends_on:
+      - incident-copilot-backend
+
+volumes:
+  mysql-data:
+
