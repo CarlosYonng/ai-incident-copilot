@@ -1,3 +1,14 @@
+### 健康检查
+GET http://localhost:8080/api/health
+
+### 触发 Demo 支付回调超时故障
+POST http://localhost:8080/api/demo/faults/payment-timeout
+Content-Type: application/json
+
+{
+  "autoCreateIncident": true
+}
+
 ### 创建支付回调超时 Incident
 POST http://localhost:8080/api/incidents
 Content-Type: application/json

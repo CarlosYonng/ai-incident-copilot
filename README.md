@@ -111,6 +111,32 @@ docker compose up --build
 
 如果本机已启动相邻项目 `diagnosis-service`，后端会通过 `http://host.docker.internal:8200/mcp` 调用真实 MCP 工具；如果未启动，系统会记录失败审计并使用模板证据兜底，演示流程仍可继续。
 
+### Smoke Test
+
+启动后端后可以直接跑完整 API 闭环：
+
+```bash
+scripts/smoke-test.sh
+```
+
+脚本会自动完成：
+
+- 健康检查。
+- 创建支付回调超时 demo Incident。
+- 启动 Workflow。
+- 校验 Workflow 节点和 MCP 工具调用审计。
+- 查找需要人工确认的处置方案。
+- 标记线下已执行。
+- 校验 metrics 进入 `recovering`。
+- 生成复盘。
+- 关闭 Incident。
+
+可通过环境变量切换 API 地址：
+
+```bash
+BASE_URL=http://localhost:8080/api scripts/smoke-test.sh
+```
+
 ### 本机开发
 
 先启动 MySQL，并确保存在数据库和账号：
@@ -184,5 +210,18 @@ curl http://localhost:8080/api/incidents/1/postmortem
 - 数据库 DDL: `database/schema.sql`
 - 接口文档: `docs/API.md`
 - 7 天开发步骤: `docs/DEVELOPMENT_PLAN.md`
+- 后续开发计划: `docs/NEXT_STEPS.md`
 - 演示脚本: `docs/DEMO_SCRIPT.md`
 - 面试讲解稿: `docs/INTERVIEW_GUIDE.md`
+
+## 当前缺失与下一步
+
+当前项目已经具备完整 MVP 能力，剩余重点是稳定性和展示质量：
+
+- 网络正常后重新跑 `docker compose up -d --build`，完成容器级端到端验收。
+- 补后端核心单元测试和接口测试。
+- 与真实 `diagnosis-service` 做一轮非 fallback MCP 联调。
+- 补 README 截图、演示截图和面试讲解材料。
+- 增强重复操作幂等性、错误码枚举和分页响应。
+
+详细计划见 `docs/NEXT_STEPS.md`。
