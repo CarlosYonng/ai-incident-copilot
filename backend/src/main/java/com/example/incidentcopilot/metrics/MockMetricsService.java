@@ -24,6 +24,10 @@ public class MockMetricsService {
     return findLatestSnapshots(incident.id(), 1).getFirst();
   }
 
+  public void recordRecoveringSnapshot(Incident incident) {
+    insertSnapshot(incident, new BigDecimal("0.0180"), 760, 1160, "recovering");
+  }
+
   public void recordRecoveredSnapshot(Incident incident) {
     insertSnapshot(incident, new BigDecimal("0.0020"), 180, 1180, "recovered");
   }

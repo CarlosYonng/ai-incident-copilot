@@ -26,8 +26,12 @@ services:
       SPRING_DATASOURCE_USERNAME: incident
       SPRING_DATASOURCE_PASSWORD: incident
       CORS_ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      DIAGNOSIS_MCP_BASE_URL: http://host.docker.internal:8200
+      RUNBOOK_DIR: /runbooks
     ports:
       - "8080:8080"
+    volumes:
+      - ./runbooks:/runbooks:ro
     depends_on:
       mysql:
         condition: service_healthy

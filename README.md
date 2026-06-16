@@ -65,7 +65,7 @@ ai-incident-copilot/
 
 ## 当前开发进度
 
-已完成 Day 1 / Day 2 的可运行基础版本：
+已完成 Day 1 到 Day 7 的可运行 MVP 闭环：
 
 - Spring Boot 后端项目骨架。
 - Flyway 初始化核心库表。
@@ -73,10 +73,17 @@ ai-incident-copilot/
 - 创建 Incident 后写入 degraded mock metrics。
 - 关闭 Incident 后写入 recovered mock metrics。
 - 固定顺序 `IncidentHandlingWorkflow`。
-- `AlertReceiverNode` 和 `MetricsCollectorNode`。
+- `AlertReceiverNode`、`MetricsCollectorNode`、`DiagnosisMcpNode`、`RunbookRetrieverNode`、`SeverityClassifierNode`、`ActionPlanGeneratorNode`、`RiskReviewNode`、`HumanApprovalNode`。
 - Workflow 实例、节点输入输出、状态、耗时落库。
 - Workflow 查询和节点时间线查询接口。
-- React + TypeScript + Vite 前端控制台骨架。
+- Diagnosis MCP JSON-RPC Client，支持 `search_logs`、`search_code`、`search_tickets`、`generate_report`。
+- MCP 调用写入 `tool_call_log`，服务不可用时使用模板证据兜底。
+- 本地 Markdown Runbook 检索。
+- Severity 分类和候选处置方案生成。
+- 中高风险方案人工确认接口：批准、驳回、升级、标记线下已执行。
+- 标记线下已执行后写入 `human_approval`、`action_record`，Incident 进入 `RECOVERING`，mock metrics 进入 `recovering`。
+- 结构化复盘报告生成和查询。
+- React + TypeScript + Vite 前端控制台完整演示闭环。
 
 ## 推荐技术栈
 
@@ -101,6 +108,8 @@ docker compose up --build
 - 前端控制台: `http://localhost:3000`
 - 后端 API: `http://localhost:8080/api`
 - MySQL: `localhost:3306`
+
+如果本机已启动相邻项目 `diagnosis-service`，后端会通过 `http://host.docker.internal:8200/mcp` 调用真实 MCP 工具；如果未启动，系统会记录失败审计并使用模板证据兜底，演示流程仍可继续。
 
 ### 本机开发
 
@@ -127,7 +136,7 @@ npm install
 npm run dev
 ```
 
-### Day 1 / Day 2 验收接口
+### MVP 验收接口
 
 ```bash
 curl -X POST http://localhost:8080/api/incidents \
@@ -148,6 +157,13 @@ curl http://localhost:8080/api/incidents
 curl -X POST http://localhost:8080/api/incidents/1/start-workflow
 curl http://localhost:8080/api/workflows/1
 curl http://localhost:8080/api/workflows/1/nodes
+curl http://localhost:8080/api/workflows/1/tool-calls
+curl http://localhost:8080/api/incidents/1/actions
+curl -X POST http://localhost:8080/api/actions/1/mark-offline-executed \
+  -H 'Content-Type: application/json' \
+  -d '{"executor":"sre-demo","resultDetail":"已在线下执行，本系统记录审计结果"}'
+curl -X POST http://localhost:8080/api/incidents/1/generate-postmortem
+curl http://localhost:8080/api/incidents/1/postmortem
 ```
 
 ## MVP 演示主线

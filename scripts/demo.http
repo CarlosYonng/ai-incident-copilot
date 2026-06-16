@@ -30,10 +30,11 @@ GET http://localhost:8080/api/incidents/1
 ### 查询 Workflow 实例
 GET http://localhost:8080/api/workflows/1
 
-### 以下为后续 Day 5 / Day 7 接口，当前阶段尚未实现
-
 ### 查询处置方案
 GET http://localhost:8080/api/incidents/1/actions
+
+### 查询 MCP / LLM 工具调用审计
+GET http://localhost:8080/api/workflows/1/tool-calls
 
 ### 标记线下已执行
 POST http://localhost:8080/api/actions/1/mark-offline-executed

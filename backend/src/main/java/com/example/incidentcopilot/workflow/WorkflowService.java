@@ -1,6 +1,8 @@
 package com.example.incidentcopilot.workflow;
 
 import com.example.incidentcopilot.common.ApiException;
+import com.example.incidentcopilot.audit.ToolCallLogResponse;
+import com.example.incidentcopilot.audit.ToolCallLogger;
 import com.example.incidentcopilot.incident.Incident;
 import com.example.incidentcopilot.incident.IncidentRepository;
 import com.example.incidentcopilot.incident.IncidentService;
@@ -13,17 +15,20 @@ public class WorkflowService {
   private final IncidentRepository incidentRepository;
   private final WorkflowRepository workflowRepository;
   private final WorkflowEngine workflowEngine;
+  private final ToolCallLogger toolCallLogger;
 
   public WorkflowService(
       IncidentService incidentService,
       IncidentRepository incidentRepository,
       WorkflowRepository workflowRepository,
-      WorkflowEngine workflowEngine
+      WorkflowEngine workflowEngine,
+      ToolCallLogger toolCallLogger
   ) {
     this.incidentService = incidentService;
     this.incidentRepository = incidentRepository;
     this.workflowRepository = workflowRepository;
     this.workflowEngine = workflowEngine;
+    this.toolCallLogger = toolCallLogger;
   }
 
   public WorkflowResponse startIncidentWorkflow(Long incidentId) {
@@ -49,6 +54,15 @@ public class WorkflowService {
     }
     return workflowRepository.findNodeExecutions(instanceId).stream()
         .map(WorkflowNodeExecutionResponse::from)
+        .toList();
+  }
+
+  public List<ToolCallLogResponse> listToolCalls(Long instanceId) {
+    if (workflowRepository.findInstance(instanceId).isEmpty()) {
+      throw ApiException.notFound("Workflow not found: " + instanceId);
+    }
+    return toolCallLogger.findByWorkflow(instanceId).stream()
+        .map(ToolCallLogResponse::from)
         .toList();
   }
 }

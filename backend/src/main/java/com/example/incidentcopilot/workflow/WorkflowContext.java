@@ -30,6 +30,11 @@ public class WorkflowContext {
     return attributes.get(key);
   }
 
+  public String getString(String key, String defaultValue) {
+    Object value = attributes.get(key);
+    return value == null ? defaultValue : String.valueOf(value);
+  }
+
   public Map<String, Object> attributes() {
     return Map.copyOf(attributes);
   }

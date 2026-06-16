@@ -42,6 +42,14 @@ public class WorkflowRepository {
     return instances.stream().findFirst();
   }
 
+  public List<WorkflowInstance> findByIncident(Long incidentId) {
+    return jdbcTemplate.query("""
+        SELECT * FROM workflow_instance
+        WHERE incident_id = ?
+        ORDER BY id ASC
+        """, workflowInstanceRowMapper(), incidentId);
+  }
+
   public List<WorkflowNodeExecution> findNodeExecutions(Long workflowInstanceId) {
     return jdbcTemplate.query("""
         SELECT * FROM workflow_node_execution
@@ -72,6 +80,14 @@ public class WorkflowRepository {
         SET status = 'SUCCESS', current_node = NULL, finished_at = CURRENT_TIMESTAMP
         WHERE id = ?
         """, workflowInstanceId);
+  }
+
+  public void markFinished(Long workflowInstanceId, String status) {
+    jdbcTemplate.update("""
+        UPDATE workflow_instance
+        SET status = ?, current_node = NULL, finished_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        """, status, workflowInstanceId);
   }
 
   public void markFailed(Long workflowInstanceId, String currentNode) {

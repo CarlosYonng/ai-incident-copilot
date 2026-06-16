@@ -86,6 +86,11 @@ public class IncidentRepository {
     return findById(id).orElseThrow();
   }
 
+  public Incident updateSeverity(Long id, String severity) {
+    jdbcTemplate.update("UPDATE incident SET severity = ? WHERE id = ?", severity, id);
+    return findById(id).orElseThrow();
+  }
+
   public Incident close(Long id) {
     jdbcTemplate.update("""
         UPDATE incident

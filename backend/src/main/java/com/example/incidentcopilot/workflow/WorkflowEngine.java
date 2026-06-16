@@ -36,8 +36,10 @@ public class WorkflowEngine {
       for (WorkflowNode node : nodes) {
         runNode(context, node);
       }
-      workflowRepository.markSuccess(context.workflowInstanceId());
-      incidentRepository.updateStatus(context.incident().id(), "OPEN");
+      String workflowStatus = context.getString("workflowFinalStatus", "SUCCESS");
+      String incidentStatus = context.getString("incidentFinalStatus", "OPEN");
+      workflowRepository.markFinished(context.workflowInstanceId(), workflowStatus);
+      incidentRepository.updateStatus(context.incident().id(), incidentStatus);
       return workflowRepository.findInstance(context.workflowInstanceId())
           .orElseThrow(() -> ApiException.notFound("Workflow not found: " + context.workflowInstanceId()));
     } catch (RuntimeException exception) {
