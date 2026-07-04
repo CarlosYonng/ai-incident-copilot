@@ -50,6 +50,16 @@ public class WorkflowRepository {
         """, workflowInstanceRowMapper(), incidentId);
   }
 
+  public Optional<WorkflowInstance> findLatestByIncident(Long incidentId) {
+    List<WorkflowInstance> instances = jdbcTemplate.query("""
+        SELECT * FROM workflow_instance
+        WHERE incident_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+        """, workflowInstanceRowMapper(), incidentId);
+    return instances.stream().findFirst();
+  }
+
   public List<WorkflowNodeExecution> findNodeExecutions(Long workflowInstanceId) {
     return jdbcTemplate.query("""
         SELECT * FROM workflow_node_execution

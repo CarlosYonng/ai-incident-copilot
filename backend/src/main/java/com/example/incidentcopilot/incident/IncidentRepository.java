@@ -81,6 +81,28 @@ public class IncidentRepository {
     return incidents.stream().findFirst();
   }
 
+  public Optional<Incident> findActiveByCorrelation(String serviceName, String endpoint, String traceId) {
+    List<Incident> incidents = jdbcTemplate.query("""
+        SELECT * FROM incident
+        WHERE service_name = ?
+          AND status <> 'CLOSED'
+          AND (
+            (? IS NOT NULL AND trace_id = ?)
+            OR (? IS NOT NULL AND endpoint = ?)
+          )
+        ORDER BY created_at DESC, id DESC
+        LIMIT 1
+        """,
+        incidentRowMapper(),
+        serviceName,
+        traceId,
+        traceId,
+        endpoint,
+        endpoint
+    );
+    return incidents.stream().findFirst();
+  }
+
   public Incident updateStatus(Long id, String status) {
     jdbcTemplate.update("UPDATE incident SET status = ? WHERE id = ?", status, id);
     return findById(id).orElseThrow();

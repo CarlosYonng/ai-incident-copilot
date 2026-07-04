@@ -6,6 +6,7 @@
 # Logs
 *.log
 logs/
+.run/
 
 # Java / Spring Boot
 target/

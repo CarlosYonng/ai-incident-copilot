@@ -63,7 +63,7 @@
 
 - 编写 5 份 Markdown Runbook。
 - 实现 `RunbookRetriever`。
-- 实现 mock metrics 状态流转。
+- 实现 Incident 指标快照状态流转。
 - 实现 `SeverityClassifierNode`。
 - 编写 `severity_prompt.md`。
 - 可选：用 LLM 生成诊断摘要；时间紧则用模板生成。
@@ -84,15 +84,15 @@
 - 实现 `ActionPlanGeneratorNode`。
 - 实现 `RiskReviewNode`。
 - 保存 `action_proposal`。
-- 实现审批接口：approve、reject、mark-offline-executed、escalate。
+- 实现审批接口：approve、reject、record-result、escalate。
 - 实现 `ActionRecordNode`。
-- 标记线下已执行后 mock metrics 进入 `recovering`。
+- 记录处置结果后 Incident 指标快照进入 `recovering`。
 
 验收：
 
 - payment-timeout 生成低、中、高 3 类建议。
 - 中高风险方案必须人工操作。
-- 标记线下已执行后产生审批记录和处理记录。
+- 记录处置结果后产生审批记录和处理记录。
 
 ## 第 6 天：前端控制台
 
@@ -104,7 +104,7 @@
 - 实现 Incident 详情页。
 - 实现 Workflow 时间线页。
 - 实现处置方案审核页。
-- 实现 mock fault 触发入口。
+- 实现前端告警入站触发入口。
 - 对节点输入输出 JSON 做折叠展示。
 
 验收：
@@ -130,4 +130,3 @@
 - 能完成 payment-timeout 全流程演示。
 - 能生成结构化复盘报告。
 - README、技术设计、API、DDL、演示脚本齐全。
-

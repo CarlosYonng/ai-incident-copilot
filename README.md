@@ -1,13 +1,16 @@
 # AI Incident Copilot 智能故障协同处理系统
 
-AI Incident Copilot 是一个面试展示用的 AI Agent Workflow 项目。它不是“AI 自动修复线上故障”，而是“AI 故障处理 Copilot”：在模拟业务服务出现异常后，自动创建 Incident，收集日志、指标、历史工单、代码线索和 Runbook，调用 `diagnosis-service` MCP 诊断工具生成诊断报告，再由上层 Agent Workflow 生成处置方案、风险分级、人工确认卡片、执行记录和复盘报告。
+AI Incident Copilot 是一个面向“被关注告警”的 Incident 响应编排服务。`diagnosis-service` 负责接收和沉淀全量异常证据，并通过 MCP tools 提供日志、代码、历史工单和诊断报告能力；本项目只处理 Grafana、Alertmanager、portfolio 监控等来源推送过来的告警事件：创建或关联 Incident，调用 `diagnosis-service` MCP 获取诊断证据，编排处置方案、处理记录、恢复观察和复盘报告，形成可审计的故障处理闭环。
+
+更清晰的职责边界和优化路线见 `docs/PROJECT_SCOPE.md`。
 
 ## 项目边界
 
 系统自动执行：
 
 - 创建 Incident。
-- 查询 mock metrics。
+- 记录原始业务告警事件，并将高置信事件关联或升级为 Incident。
+- 查询 Incident 指标快照，当前由告警 payload 和演示状态机驱动，后续可替换为 Prometheus / Grafana 数据源。
 - 调用 `diagnosis-service` MCP tools。
 - 检索 Runbook。
 - 生成诊断摘要、候选处置方案、风险说明和复盘报告。
@@ -44,7 +47,6 @@ ai-incident-copilot/
     FRONTEND_DESIGN.md
     DEVELOPMENT_PLAN.md
     DEMO_SCRIPT.md
-    INTERVIEW_GUIDE.md
   database/
     schema.sql
   prompts/
@@ -57,8 +59,19 @@ ai-incident-copilot/
     dependency-unavailable.md
     database-slow-query.md
     redis-cache-failure.md
+    portfolio-rag-retrieval-empty.md
+    portfolio-qdrant-unavailable.md
+    portfolio-ai-service-timeout.md
+    portfolio-sse-stream-interrupted.md
+    portfolio-knowledge-ingestion-failure.md
+    portfolio-graphrag-fallback-failure.md
   scripts/
     demo.http
+    smoke-test.sh
+  .env.example
+  CHANGELOG.md
+  LICENSE
+  SECURITY.md
   docker-compose.yml
   docker-compose.design.yml
 ```
@@ -70,8 +83,9 @@ ai-incident-copilot/
 - Spring Boot 后端项目骨架。
 - Flyway 初始化核心库表。
 - Incident 创建、列表、详情、关闭接口。
-- 创建 Incident 后写入 degraded mock metrics。
-- 关闭 Incident 后写入 recovered mock metrics。
+- Alert Ingest 入站接口，支持原始告警事件落库、幂等、阈值判断、Incident 关联和自动启动 Workflow。
+- 创建 Incident 后写入告警携带的 degraded 指标快照。
+- 关闭 Incident 后写入 recovered 指标快照。
 - 固定顺序 `IncidentHandlingWorkflow`。
 - `AlertReceiverNode`、`MetricsCollectorNode`、`DiagnosisMcpNode`、`RunbookRetrieverNode`、`SeverityClassifierNode`、`ActionPlanGeneratorNode`、`RiskReviewNode`、`HumanApprovalNode`。
 - Workflow 实例、节点输入输出、状态、耗时落库。
@@ -80,8 +94,8 @@ ai-incident-copilot/
 - MCP 调用写入 `tool_call_log`，服务不可用时使用模板证据兜底。
 - 本地 Markdown Runbook 检索。
 - Severity 分类和候选处置方案生成。
-- 中高风险方案人工确认接口：批准、驳回、升级、标记线下已执行。
-- 标记线下已执行后写入 `human_approval`、`action_record`，Incident 进入 `RECOVERING`，mock metrics 进入 `recovering`。
+- 中高风险方案人工确认接口：批准、驳回、升级、记录处理结果。
+- 记录处理结果后写入 `human_approval`、`action_record`，Incident 进入 `RECOVERING`，指标快照进入 `recovering`。
 - 结构化复盘报告生成和查询。
 - React + TypeScript + Vite 前端控制台完整演示闭环。
 
@@ -100,16 +114,43 @@ ai-incident-copilot/
 ### Docker Compose
 
 ```bash
-docker compose up --build
+scripts/start-docker.sh
 ```
 
 启动后访问：
 
 - 前端控制台: `http://localhost:3000`
 - 后端 API: `http://localhost:8080/api`
-- MySQL: `localhost:3306`
+- MySQL: 复用 `ai-agent-infra-stack` 的 `localhost:3306`
+
+默认复用相邻项目 `ai-agent-infra-stack` 中的 MySQL。Docker 后端通过 `host.docker.internal:3306` 连接，宿主机后端通过 `localhost:3306` 连接。
+本项目使用独立 database `incident_copilot` 和独立用户 `incident_copilot`，不复用其他项目的 `agent` 用户。
+
+首次运行前初始化数据库和专用用户：
+
+```bash
+scripts/init-db.sh
+```
 
 如果本机已启动相邻项目 `diagnosis-service`，后端会通过 `http://host.docker.internal:8200/mcp` 调用真实 MCP 工具；如果未启动，系统会记录失败审计并使用模板证据兜底，演示流程仍可继续。
+
+复制环境变量模板：
+
+```bash
+cp .env.example .env
+```
+
+真实 MCP 链路验收时，把 `.env` 中的 fallback 关闭：
+
+```env
+DIAGNOSIS_MCP_FALLBACK_ENABLED=false
+```
+
+停止 Docker 服务：
+
+```bash
+scripts/stop-docker.sh
+```
 
 ### Smoke Test
 
@@ -122,12 +163,12 @@ scripts/smoke-test.sh
 脚本会自动完成：
 
 - 健康检查。
-- 创建支付回调超时 demo Incident。
+- 注入支付回调超时业务告警事件。
 - 启动 Workflow。
 - 校验 Workflow 节点和 MCP 工具调用审计。
 - 查找需要人工确认的处置方案。
-- 标记线下已执行。
-- 校验 metrics 进入 `recovering`。
+- 记录处置结果。
+- 校验 Incident 指标快照进入 `recovering`。
 - 生成复盘。
 - 关闭 Incident。
 
@@ -139,12 +180,36 @@ BASE_URL=http://localhost:8080/api scripts/smoke-test.sh
 
 ### 本机开发
 
-先启动 MySQL，并确保存在数据库和账号：
+推荐使用脚本启动本机开发环境：
+
+```bash
+scripts/start-local.sh
+```
+
+脚本默认复用 `ai-agent-infra-stack` 的 MySQL，并在宿主机启动 Spring Boot 后端和 Vite 前端。Java 后端使用 Logback 写入 `logs/backend/incident-copilot.log` 和 `logs/backend/incident-copilot-error.log`，前端日志写入 `.run/frontend.log`。
+
+查看运行日志：
+
+```bash
+scripts/logs.sh local
+scripts/logs.sh backend
+scripts/logs.sh error
+scripts/logs.sh docker
+```
+
+查看或停止本地端口进程：
+
+```bash
+scripts/status-local.sh
+scripts/stop-local.sh
+```
+
+如需手动启动，先启动 `ai-agent-infra-stack`，并确保其中 MySQL 存在数据库和账号：
 
 ```text
 database: incident_copilot
-username: incident
-password: incident
+username: incident_copilot
+password: incident_copilot123
 ```
 
 启动后端：
@@ -161,6 +226,8 @@ cd frontend
 npm install
 npm run dev
 ```
+
+更完整的运行配置见 `docs/RUNNING.md`。
 
 ### MVP 验收接口
 
@@ -185,22 +252,23 @@ curl http://localhost:8080/api/workflows/1
 curl http://localhost:8080/api/workflows/1/nodes
 curl http://localhost:8080/api/workflows/1/tool-calls
 curl http://localhost:8080/api/incidents/1/actions
-curl -X POST http://localhost:8080/api/actions/1/mark-offline-executed \
+curl -X POST http://localhost:8080/api/actions/1/record-result \
   -H 'Content-Type: application/json' \
   -d '{"executor":"sre-demo","resultDetail":"已在线下执行，本系统记录审计结果"}'
+curl http://localhost:8080/api/incidents/1/metrics
 curl -X POST http://localhost:8080/api/incidents/1/generate-postmortem
 curl http://localhost:8080/api/incidents/1/postmortem
 ```
 
 ## MVP 演示主线
 
-1. 启动 `diagnosis-service`、`demo-service`、Incident Copilot 后端、前端和 MySQL。
-2. 触发 `payment-timeout` 模拟故障。
-3. 创建 Incident 并启动 `IncidentHandlingWorkflow`。
-4. 展示 mock metrics、MCP 调用、Runbook 检索和 Workflow 时间线。
+1. 启动 `ai-agent-infra-stack`、`diagnosis-service`、`demo-service`、Incident Copilot 后端和前端。
+2. 通过 Grafana / Alertmanager webhook payload 注入 portfolio 支付回调超时告警。
+3. 系统记录入站告警、创建或关联 Incident，并启动 `IncidentHandlingWorkflow`。
+4. 展示 Incident 指标快照、MCP 调用、Runbook 检索和 Workflow 时间线。
 5. 生成 3 个候选处置方案。
-6. 对中风险方案点击“标记线下已执行”。
-7. mock metrics 从 `degraded` 变为 `recovering`。
+6. 对中风险方案点击“记录处理结果”。
+7. 指标快照从 `degraded` 变为 `recovering`。
 8. 生成复盘报告并关闭 Incident。
 
 ## 核心文档
@@ -208,11 +276,16 @@ curl http://localhost:8080/api/incidents/1/postmortem
 - 产品说明: `docs/PRD.md`
 - 技术设计: `docs/TECH_DESIGN.md`
 - 数据库 DDL: `database/schema.sql`
+- 数据库说明: `docs/DATABASE_SCHEMA.md`
 - 接口文档: `docs/API.md`
+- Runbook 定义: `docs/RUNBOOKS.md`
+- 模块结构设计: `docs/MODULE_STRUCTURE.md`
+- 运行说明: `docs/RUNNING.md`
+- 真实链路联调: `docs/REAL_CHAIN_INTEGRATION.md`
+- 发布检查表: `docs/RELEASE_READINESS.md`
 - 7 天开发步骤: `docs/DEVELOPMENT_PLAN.md`
 - 后续开发计划: `docs/NEXT_STEPS.md`
 - 演示脚本: `docs/DEMO_SCRIPT.md`
-- 面试讲解稿: `docs/INTERVIEW_GUIDE.md`
 
 ## 当前缺失与下一步
 
@@ -221,7 +294,19 @@ curl http://localhost:8080/api/incidents/1/postmortem
 - 网络正常后重新跑 `docker compose up -d --build`，完成容器级端到端验收。
 - 补后端核心单元测试和接口测试。
 - 与真实 `diagnosis-service` 做一轮非 fallback MCP 联调。
-- 补 README 截图、演示截图和面试讲解材料。
 - 增强重复操作幂等性、错误码枚举和分页响应。
 
 详细计划见 `docs/NEXT_STEPS.md`。
+
+## 发布状态
+
+当前仓库已补齐 MVP 发布所需的基础资料：
+
+- `LICENSE`
+- `SECURITY.md`
+- `CHANGELOG.md`
+- `.env.example`
+- `.github/workflows/ci.yml`
+- `docs/RELEASE_READINESS.md`
+
+发布前仍需完成容器级端到端实跑和 README 截图。真实链路边界见 `docs/REAL_CHAIN_INTEGRATION.md`。

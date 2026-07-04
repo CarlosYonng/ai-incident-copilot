@@ -1,40 +1,23 @@
 services:
-  mysql:
-    image: mysql:8.4
-    container_name: incident-copilot-mysql
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: incident_copilot
-      MYSQL_USER: incident
-      MYSQL_PASSWORD: incident
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql-data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
   backend:
     build:
       context: ./backend
     container_name: incident-copilot-backend
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/incident_copilot?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-      SPRING_DATASOURCE_USERNAME: incident
-      SPRING_DATASOURCE_PASSWORD: incident
+      SPRING_DATASOURCE_URL: jdbc:mysql://host.docker.internal:3306/incident_copilot?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: incident_copilot
+      SPRING_DATASOURCE_PASSWORD: incident_copilot123
       CORS_ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
       DIAGNOSIS_MCP_BASE_URL: http://host.docker.internal:8200
+      DIAGNOSIS_MCP_TOKEN: ${DIAGNOSIS_MCP_TOKEN:-}
+      DIAGNOSIS_MCP_FALLBACK_ENABLED: true
       RUNBOOK_DIR: /runbooks
+      LOG_PATH: /app/logs
     ports:
       - "8080:8080"
     volumes:
       - ./runbooks:/runbooks:ro
-    depends_on:
-      mysql:
-        condition: service_healthy
+      - ./logs/backend:/app/logs
 
   frontend:
     build:
@@ -46,6 +29,3 @@ services:
       - "3000:3000"
     depends_on:
       - backend
-
-volumes:
-  mysql-data:

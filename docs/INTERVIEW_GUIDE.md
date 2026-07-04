@@ -2,7 +2,7 @@
 
 ## 1. 项目一句话介绍
 
-AI Incident Copilot 是一个智能故障协同处理系统。它在模拟服务发生异常后，通过 Agent Workflow 自动收集证据、调用 MCP 诊断服务、检索 Runbook、生成处置建议，并把中高风险动作交给人工确认，最后生成审计记录和复盘报告。
+AI Incident Copilot 是一个面向被关注告警的智能故障协同处理系统。portfolio 被监控系统发现异常后，Grafana / Alertmanager 通过 webhook 把告警推给本项目；本项目再通过 Agent Workflow 收集证据、调用 MCP 诊断服务、检索 Runbook、生成处置建议，并把中高风险动作交给人工确认，最后生成审计记录和复盘报告。
 
 ## 2. 为什么把 diagnosis-service 设计成独立 MCP 工具服务
 
@@ -84,9 +84,9 @@ Runbook 还显式区分低、中、高风险动作，帮助系统做风险分级
 
 ## 11. 后续如何接入真实 Prometheus / Alertmanager
 
-MVP 的 mock metrics 可以替换为 `MetricsProvider` 接口实现。新增 `PrometheusMetricsProvider` 后，`MetricsCollectorNode` 不需要改变业务流程，只需要切换实现。
+当前 Incident 指标快照由告警 payload 和演示状态机驱动。生产化时可以替换为 `MetricsProvider` 接口实现，新增 `PrometheusMetricsProvider` 后，`MetricsCollectorNode` 不需要改变业务流程，只需要切换实现。
 
-Alertmanager 可以作为 Incident 创建来源，把告警 payload 转换成统一的 Incident 创建请求。
+Grafana / Alertmanager 可以作为告警入站来源，把 webhook payload 转换成统一的 `AlertIngestRequest`，再由系统判断创建或关联 Incident。
 
 ## 12. 和普通 RAG chatbot 的区别
 
@@ -112,4 +112,3 @@ Alertmanager 可以作为 Incident 创建来源，把告警 payload 转换成统
 - 增加 RBAC 权限和操作审计导出。
 - 支持更多故障类型和服务拓扑。
 - 对 LLM 输出引入更严格的 JSON Schema 和安全策略。
-

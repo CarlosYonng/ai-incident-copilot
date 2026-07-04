@@ -7,10 +7,14 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.core.annotation.AnnotationAwareOrderComparator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
 public class WorkflowEngine {
+  private static final Logger log = LoggerFactory.getLogger(WorkflowEngine.class);
+
   private final List<WorkflowNode> nodes;
   private final WorkflowRepository workflowRepository;
   private final IncidentRepository incidentRepository;
@@ -36,6 +40,8 @@ public class WorkflowEngine {
       for (WorkflowNode node : nodes) {
         runNode(context, node);
       }
+      // Nodes can decide the terminal business state. For example, HumanApprovalNode
+      // finishes the technical workflow but leaves the incident waiting for a person.
       String workflowStatus = context.getString("workflowFinalStatus", "SUCCESS");
       String incidentStatus = context.getString("incidentFinalStatus", "OPEN");
       workflowRepository.markFinished(context.workflowInstanceId(), workflowStatus);
@@ -54,7 +60,15 @@ public class WorkflowEngine {
     Instant started = Instant.now();
     Long executionId = null;
     try {
+      log.info(
+          "workflow_node_started workflowInstanceId={} node={} nodeType={}",
+          context.workflowInstanceId(),
+          node.name(),
+          node.nodeType()
+      );
       NodeResult result = node.execute(context);
+      // Persist node execution after the node returns so the audit log contains
+      // the exact input/output that the node produced for the demo timeline.
       executionId = workflowRepository.createNodeExecution(
           context.workflowInstanceId(),
           node.name(),
@@ -63,9 +77,17 @@ public class WorkflowEngine {
       );
       long durationMs = Duration.between(started, Instant.now()).toMillis();
       workflowRepository.markNodeSuccess(executionId, jdbcJson.stringify(result.output()), durationMs);
+      log.info(
+          "workflow_node_succeeded workflowInstanceId={} node={} durationMs={}",
+          context.workflowInstanceId(),
+          node.name(),
+          durationMs
+      );
     } catch (RuntimeException exception) {
       long durationMs = Duration.between(started, Instant.now()).toMillis();
       if (executionId == null) {
+        // If a node fails before producing a NodeResult, still create a failed
+        // execution row. This keeps the workflow debuggable and retry-friendly.
         executionId = workflowRepository.createNodeExecution(
             context.workflowInstanceId(),
             node.name(),
@@ -74,6 +96,14 @@ public class WorkflowEngine {
         );
       }
       workflowRepository.markNodeFailed(executionId, exception.getMessage(), durationMs);
+      log.error(
+          "workflow_node_failed workflowInstanceId={} node={} durationMs={} message={}",
+          context.workflowInstanceId(),
+          node.name(),
+          durationMs,
+          exception.getMessage(),
+          exception
+      );
       throw ApiException.workflowFailed(node.name() + " failed: " + exception.getMessage());
     }
   }

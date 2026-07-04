@@ -44,7 +44,7 @@ public class PostmortemService {
         : workflowRepository.findNodeExecutions(workflowId).stream()
             .map(WorkflowNodeExecutionResponse::from)
             .toList();
-    var actions = actionProposalRepository.findByIncident(incidentId);
+    var selectedActions = actionProposalRepository.findExecutedByIncident(incidentId);
     List<String> actionItems = List.of(
         "补充 " + incident.serviceName() + " 错误率、p95 延迟和下游依赖监控",
         "为 " + valueOrDefault(incident.endpoint(), "核心接口") + " 建立超时/异常 Runbook 演练",
@@ -56,10 +56,10 @@ public class PostmortemService {
         "在发布前演练降级、重试和回滚预案"
     );
     String summary = incident.title() + " 已进入故障处理闭环，系统完成证据收集、建议生成和审计记录。";
-    String rootCause = actions.stream()
-        .filter(action -> "OFFLINE_EXECUTED".equals(action.status()))
+    String rootCause = selectedActions.stream()
         .findFirst()
-        .map(action -> "主要风险来自 " + incident.serviceName() + " 链路异常；已线下执行 " + action.title() + "。")
+        .map(action -> "主要风险来自 " + incident.serviceName() + " 链路异常；本次采用 "
+            + action.title() + "（" + riskLabel(action.riskLevel()) + "），平台已记录处理结果并进入恢复观察。")
         .orElse("初步判断为下游依赖延迟、代码边界或配置变更导致的服务异常。");
     String impact = "影响范围集中在 " + incident.serviceName() + " " + valueOrDefault(incident.endpoint(), "相关接口") + "，表现为错误率或延迟升高。";
     String reportContent = renderMarkdown(incident, summary, rootCause, impact, actionItems, preventionItems);
@@ -142,5 +142,14 @@ public class PostmortemService {
 
   private String valueOrDefault(String value, String defaultValue) {
     return value == null || value.isBlank() ? defaultValue : value;
+  }
+
+  private String riskLabel(String riskLevel) {
+    return switch (riskLevel) {
+      case "LOW" -> "低风险";
+      case "MEDIUM" -> "中风险";
+      case "HIGH" -> "高风险";
+      default -> riskLevel;
+    };
   }
 }

@@ -36,10 +36,14 @@ echo "[smoke] base url: ${BASE_URL}"
 echo "[smoke] health"
 get_json "/health" | json_field 'import json,sys; data=json.load(sys.stdin); assert data["data"]["status"] in ("UP", "DEGRADED"); print(data["data"]["status"])'
 
-echo "[smoke] create demo incident"
-CREATE_RESPONSE="$(post_json "/demo/faults/payment-timeout" '{"autoCreateIncident":true}')"
-INCIDENT_ID="$(printf '%s' "$CREATE_RESPONSE" | json_field 'import json,sys; print(json.load(sys.stdin)["data"]["id"])')"
+echo "[smoke] ingest Grafana payment alert and create incident"
+EVENT_ID="smoke-payment-$(date +%s)"
+CREATE_RESPONSE="$(post_json "/alerts/grafana" "{\"alerts\":[{\"fingerprint\":\"${EVENT_ID}\",\"startsAt\":\"2026-07-04T00:00:00Z\",\"labels\":{\"alertname\":\"支付回调超时\",\"service\":\"payment-service\",\"endpoint\":\"/api/payment/callback\",\"trace_id\":\"trace-payment-timeout-smoke\",\"exception_type\":\"TimeoutError\",\"severity\":\"P1\",\"error_rate\":\"0.082\",\"p95_latency\":\"3200\",\"qps\":\"1260\",\"affected_requests\":\"238\"},\"annotations\":{\"summary\":\"smoke test payment callback timeout spike\",\"description\":\"payment callback error rate and latency crossed threshold\"}}]}")"
+INCIDENT_ID="$(printf '%s' "$CREATE_RESPONSE" | json_field 'import json,sys; print(json.load(sys.stdin)["data"]["incident"]["id"])')"
 echo "[smoke] incident id: ${INCIDENT_ID}"
+
+echo "[smoke] verify inbound alert event"
+get_json "/incidents/${INCIDENT_ID}/alerts" | json_field 'import json,sys; data=json.load(sys.stdin)["data"]; assert len(data) >= 1; print(data[0]["status"])'
 
 echo "[smoke] start workflow"
 WORKFLOW_RESPONSE="$(post_json "/incidents/${INCIDENT_ID}/start-workflow" '{}')"
@@ -57,11 +61,11 @@ ACTIONS_RESPONSE="$(get_json "/incidents/${INCIDENT_ID}/actions")"
 ACTION_ID="$(printf '%s' "$ACTIONS_RESPONSE" | json_field 'import json,sys; actions=json.load(sys.stdin)["data"]; print(next(a["id"] for a in actions if a["requiresApproval"]))')"
 echo "[smoke] action id: ${ACTION_ID}"
 
-echo "[smoke] mark offline executed"
-post_json "/actions/${ACTION_ID}/mark-offline-executed" '{"executor":"sre-demo","resultDetail":"smoke test marked offline execution"}' >/dev/null
+echo "[smoke] record action result"
+post_json "/actions/${ACTION_ID}/record-result" '{"executor":"sre-demo","resultDetail":"smoke test recorded action result"}' >/dev/null
 
 echo "[smoke] verify recovering metrics"
-get_json "/demo/metrics/${INCIDENT_ID}" | json_field 'import json,sys; data=json.load(sys.stdin)["data"]; assert any(m["status"] == "recovering" for m in data); print("recovering")'
+get_json "/incidents/${INCIDENT_ID}/metrics" | json_field 'import json,sys; data=json.load(sys.stdin)["data"]; assert any(m["status"] == "recovering" for m in data); print("recovering")'
 
 echo "[smoke] generate postmortem"
 post_json "/incidents/${INCIDENT_ID}/generate-postmortem" '{}' | json_field 'import json,sys; data=json.load(sys.stdin)["data"]; assert data["summary"]; print("postmortem")'

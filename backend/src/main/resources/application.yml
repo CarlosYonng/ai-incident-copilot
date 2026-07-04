@@ -5,16 +5,24 @@ spring:
   application:
     name: incident-copilot-backend
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/incident_copilot?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
-    username: ${SPRING_DATASOURCE_USERNAME:incident}
-    password: ${SPRING_DATASOURCE_PASSWORD:incident}
+    url: jdbc:mysql://localhost:3306/incident_copilot?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: incident_copilot
+    password: incident_copilot123
     driver-class-name: com.mysql.cj.jdbc.Driver
   flyway:
     enabled: true
     baseline-on-migrate: true
 
+logging:
+  file:
+    path: ${LOG_PATH:logs/backend}
+  level:
+    root: INFO
+    com.example.incidentcopilot: INFO
+
 incident-copilot:
   cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://127.0.0.1:3000}
   diagnosis-mcp-base-url: ${DIAGNOSIS_MCP_BASE_URL:http://localhost:8200}
   diagnosis-mcp-token: ${DIAGNOSIS_MCP_TOKEN:}
+  diagnosis-mcp-fallback-enabled: ${DIAGNOSIS_MCP_FALLBACK_ENABLED:true}
   runbook-dir: ${RUNBOOK_DIR:../runbooks}

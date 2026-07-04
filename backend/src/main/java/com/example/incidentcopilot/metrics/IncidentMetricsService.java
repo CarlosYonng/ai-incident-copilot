@@ -1,5 +1,6 @@
 package com.example.incidentcopilot.metrics;
 
+import com.example.incidentcopilot.action.ActionProposal;
 import com.example.incidentcopilot.incident.Incident;
 import java.math.BigDecimal;
 import java.util.List;
@@ -8,10 +9,10 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
 
 @Service
-public class MockMetricsService {
+public class IncidentMetricsService {
   private final JdbcTemplate jdbcTemplate;
 
-  public MockMetricsService(JdbcTemplate jdbcTemplate) {
+  public IncidentMetricsService(JdbcTemplate jdbcTemplate) {
     this.jdbcTemplate = jdbcTemplate;
   }
 
@@ -19,13 +20,27 @@ public class MockMetricsService {
     insertSnapshot(incident, new BigDecimal("0.0820"), 3200, 1260, "degraded");
   }
 
+  public void recordAlertSnapshot(Incident incident, BigDecimal errorRate, Integer p95Latency, Integer qps) {
+    insertSnapshot(
+        incident,
+        errorRate == null ? new BigDecimal("0.0200") : errorRate,
+        p95Latency == null ? 1000 : p95Latency,
+        qps == null ? 1000 : qps,
+        "degraded"
+    );
+  }
+
   public MetricSnapshot recordWorkflowSnapshot(Incident incident) {
     insertSnapshot(incident, new BigDecimal("0.0760"), 2850, 1210, "degraded");
     return findLatestSnapshots(incident.id(), 1).getFirst();
   }
 
-  public void recordRecoveringSnapshot(Incident incident) {
-    insertSnapshot(incident, new BigDecimal("0.0180"), 760, 1160, "recovering");
+  public void recordRecoveringSnapshot(Incident incident, ActionProposal proposal) {
+    switch (proposal.riskLevel()) {
+      case "LOW" -> insertSnapshot(incident, new BigDecimal("0.0520"), 2100, 1180, "recovering");
+      case "HIGH" -> insertSnapshot(incident, new BigDecimal("0.0060"), 420, 1040, "recovering");
+      default -> insertSnapshot(incident, new BigDecimal("0.0180"), 760, 1160, "recovering");
+    }
   }
 
   public void recordRecoveredSnapshot(Incident incident) {

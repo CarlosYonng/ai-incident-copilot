@@ -8,8 +8,8 @@
 - Incident CRUD、Workflow 编排、节点执行记录已完成。
 - Diagnosis MCP Client、工具调用审计、Runbook 检索已完成。
 - Severity 分类、候选处置方案、风险审核、人工确认已完成。
-- 标记线下已执行、mock metrics 恢复流转、复盘报告已完成。
-- React 控制台已能完成创建故障、启动 Workflow、查看证据、执行人工确认、生成复盘和关闭 Incident。
+- 记录处置结果、Incident 指标恢复观察、复盘报告已完成。
+- React 控制台已能完成告警入站、启动 Workflow、查看证据、执行人工确认、生成复盘和关闭 Incident。
 - `scripts/smoke-test.sh` 已覆盖核心 API 闭环。
 
 ## 仍缺失的部分
@@ -44,7 +44,7 @@
 MVP 内部实现偏轻量，后续可以补：
 
 - 更规范的分页响应。
-- 操作幂等性，例如重复启动 Workflow、重复标记线下执行。
+- 操作幂等性，例如重复启动 Workflow、重复记录处置结果。
 - 更强的 JSON Schema 校验。
 - 更清晰的错误码枚举。
 - 更完整的审计查询页面。

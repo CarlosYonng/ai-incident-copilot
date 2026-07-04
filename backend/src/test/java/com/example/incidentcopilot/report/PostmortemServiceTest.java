@@ -31,7 +31,7 @@ class PostmortemServiceTest {
     when(incidentService.findRequired(1L)).thenReturn(incident);
     when(workflowRepository.findByIncident(1L)).thenReturn(List.of(workflowInstance()));
     when(workflowRepository.findNodeExecutions(10L)).thenReturn(List.of());
-    when(actionRepository.findByIncident(1L)).thenReturn(List.of(executedAction()));
+    when(actionRepository.findExecutedByIncident(1L)).thenReturn(List.of(executedAction()));
     PostmortemService service = new PostmortemService(
         postmortemRepository,
         incidentService,
@@ -43,7 +43,8 @@ class PostmortemServiceTest {
     PostmortemResponse response = service.generate(1L);
 
     assertThat(response.summary()).contains("payment-service 支付回调超时");
-    assertThat(response.rootCause()).contains("已线下执行 开启支付回调延迟重试");
+    assertThat(response.rootCause()).contains("本次采用 开启支付回调延迟重试");
+    assertThat(response.rootCause()).contains("中风险");
     assertThat(response.actionItems()).hasSize(3);
     assertThat(response.reportContent()).contains("Incident Postmortem");
     verify(postmortemRepository).upsert(

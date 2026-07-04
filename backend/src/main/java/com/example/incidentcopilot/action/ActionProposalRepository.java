@@ -82,8 +82,26 @@ public class ActionProposalRepository {
         """, rowMapper(), workflowInstanceId);
   }
 
+  public List<ActionProposal> findExecutedByIncident(Long incidentId) {
+    return jdbcTemplate.query("""
+        SELECT * FROM action_proposal
+        WHERE incident_id = ? AND status = 'OFFLINE_EXECUTED'
+        ORDER BY updated_at DESC, id DESC
+        """, rowMapper(), incidentId);
+  }
+
   public void updateStatus(Long id, String status) {
     jdbcTemplate.update("UPDATE action_proposal SET status = ? WHERE id = ?", status, id);
+  }
+
+  public void markUnselectedActions(Long incidentId, Long selectedActionId) {
+    jdbcTemplate.update("""
+        UPDATE action_proposal
+        SET status = 'NOT_SELECTED'
+        WHERE incident_id = ?
+          AND id <> ?
+          AND status IN ('READY', 'PENDING', 'APPROVED', 'ESCALATED')
+        """, incidentId, selectedActionId);
   }
 
   public void createApproval(Long actionProposalId, Long incidentId, String decision, String comment, String approvedBy) {

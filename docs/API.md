@@ -34,6 +34,104 @@ http://localhost:8080/api
 
 ## 2. Incident
 
+推荐生产式入口是先调用告警入站接口，由系统记录原始事件、判断是否创建或关联 Incident，再进入 Workflow。`POST /api/incidents` 保留给人工创建或兼容场景。
+
+## 2.1 Alert Ingest
+
+### POST /api/alerts/ingest
+
+记录一条来自监控、APM、日志平台或业务系统的原始告警事件。系统会先写入 `alert_event`，再根据阈值判断是否创建 Incident，或关联已有未关闭 Incident。可通过 `startWorkflow=true` 让高置信告警入站后直接执行诊断工作流。
+
+请求：
+
+```json
+{
+  "eventId": "payment-alert-20260704-001",
+  "source": "payment-gateway-apm",
+  "signalName": "支付回调超时",
+  "serviceName": "payment-service",
+  "endpoint": "/api/payment/callback",
+  "traceId": "trace-payment-timeout-001",
+  "exceptionType": "TimeoutError",
+  "summary": "支付网关回调链路 5 分钟窗口内 500 错误率和超时数同时升高",
+  "errorRate": 0.082,
+  "p95Latency": 3200,
+  "qps": 1260,
+  "affectedRequests": 238,
+  "severityHint": "P1",
+  "rawPayload": {
+    "businessOperation": "payment_callback",
+    "gateway": "sandbox-pay-gateway",
+    "alertWindow": "5m"
+  },
+  "startWorkflow": true
+}
+```
+
+响应：
+
+```json
+{
+  "alertEvent": {
+    "eventId": "payment-alert-20260704-001",
+    "status": "INCIDENT_CREATED",
+    "decisionReason": "Actionable alert event crossed incident thresholds and opened a new incident."
+  },
+  "incident": {
+    "id": 1,
+    "incidentNo": "INC-20260704-ABC123",
+    "status": "OPEN"
+  },
+  "workflow": {
+    "workflowInstanceId": 10,
+    "status": "WAITING_APPROVAL"
+  }
+}
+```
+
+### GET /api/incidents/{id}/alerts
+
+查询某个 Incident 关联的入站告警事件，用于还原事故来源。
+
+### POST /api/alerts/grafana
+
+接收 Grafana webhook payload，并转换为统一的 `AlertIngestRequest`。这是推荐演示入口，适合表达“portfolio 被监控系统发现异常后，把告警推给 Incident Copilot”。
+
+请求示例：
+
+```json
+{
+  "alerts": [
+    {
+      "fingerprint": "payment-alert-20260704-001",
+      "startsAt": "2026-07-04T00:00:00Z",
+      "labels": {
+        "alertname": "支付回调超时",
+        "service": "payment-service",
+        "endpoint": "/api/payment/callback",
+        "trace_id": "trace-payment-timeout-001",
+        "exception_type": "TimeoutError",
+        "severity": "P1",
+        "error_rate": "0.082",
+        "p95_latency": "3200",
+        "qps": "1260",
+        "affected_requests": "238"
+      },
+      "annotations": {
+        "summary": "portfolio 支付回调链路错误率和延迟同时升高",
+        "description": "5 分钟窗口内 payment-service callback timeout spike"
+      }
+    }
+  ]
+}
+```
+
+响应结构同 `POST /api/alerts/ingest`。适配器会自动补齐 `source=GRAFANA`、`startWorkflow=true`，并把原始 payload 保存在 `alert_event.raw_payload_json`。
+
+### POST /api/alerts/alertmanager
+
+接收 Alertmanager webhook payload，并转换为统一的 `AlertIngestRequest`。字段优先从 `alerts[0].labels` 和 `alerts[0].annotations` 读取。
+
 ### POST /api/incidents
 
 创建 Incident。
@@ -103,7 +201,7 @@ Query:
 
 ### POST /api/incidents/{id}/close
 
-关闭 Incident。关闭时 mock metrics 状态更新为 `recovered`。
+关闭 Incident。关闭时写入 `recovered` 指标快照，表示处理流程已经从恢复观察进入关闭状态。
 
 请求：
 
@@ -203,9 +301,9 @@ Query:
 }
 ```
 
-### POST /api/actions/{actionId}/mark-offline-executed
+### POST /api/actions/{actionId}/record-result
 
-标记线下已执行。用于演示中风险动作处理闭环。
+记录处置结果。系统不直接执行生产变更，只记录“处理人在线下系统完成了哪项动作、结果是什么”，用于把人工执行和 Incident 生命周期串起来。
 
 请求：
 
@@ -222,7 +320,11 @@ Query:
 - 新增 `action_record`。
 - `action_proposal.status` 更新为 `OFFLINE_EXECUTED`。
 - Incident 状态更新为 `RECOVERING`。
-- mock metrics 新增 `recovering` 快照。
+- Incident 指标快照新增 `recovering` 样本。
+
+### POST /api/actions/{actionId}/mark-offline-executed
+
+兼容旧演示脚本的接口，行为等同于 `POST /api/actions/{actionId}/record-result`。新代码和文档建议使用 `record-result`。
 
 ### POST /api/actions/{actionId}/escalate
 
@@ -263,11 +365,11 @@ Query:
 }
 ```
 
-## 6. Mock Demo
+## 6. Demo / Metrics
 
 ### POST /api/demo/faults/payment-timeout
 
-触发支付回调超时模拟故障。可选择直接创建 Incident。
+触发支付回调超时样例故障。该接口只用于本地演示；真实主线推荐使用 `POST /api/alerts/grafana` 或 `POST /api/alerts/alertmanager`。
 
 请求：
 
@@ -281,9 +383,9 @@ Query:
 
 触发订单创建空指针模拟故障。
 
-### GET /api/demo/metrics/{incidentId}
+### GET /api/incidents/{incidentId}/metrics
 
-查询模拟指标快照。
+查询某个 Incident 的指标快照。当前快照来自入站告警 payload 和演示状态机；生产接入时可把 `IncidentMetricsService` 替换为 Prometheus / Grafana 查询适配器。
 
 响应：
 
@@ -322,4 +424,3 @@ Query:
   }
 ]
 ```
-

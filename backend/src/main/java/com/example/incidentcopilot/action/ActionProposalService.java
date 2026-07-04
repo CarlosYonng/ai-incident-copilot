@@ -5,7 +5,7 @@ import com.example.incidentcopilot.common.JdbcJson;
 import com.example.incidentcopilot.diagnosis.DiagnosisEvidence;
 import com.example.incidentcopilot.incident.Incident;
 import com.example.incidentcopilot.incident.IncidentRepository;
-import com.example.incidentcopilot.metrics.MockMetricsService;
+import com.example.incidentcopilot.metrics.IncidentMetricsService;
 import com.example.incidentcopilot.runbook.RunbookDocument;
 import java.util.List;
 import java.util.Map;
@@ -16,18 +16,18 @@ import org.springframework.transaction.annotation.Transactional;
 public class ActionProposalService {
   private final ActionProposalRepository actionProposalRepository;
   private final IncidentRepository incidentRepository;
-  private final MockMetricsService mockMetricsService;
+  private final IncidentMetricsService incidentMetricsService;
   private final JdbcJson jdbcJson;
 
   public ActionProposalService(
       ActionProposalRepository actionProposalRepository,
       IncidentRepository incidentRepository,
-      MockMetricsService mockMetricsService,
+      IncidentMetricsService incidentMetricsService,
       JdbcJson jdbcJson
   ) {
     this.actionProposalRepository = actionProposalRepository;
     this.incidentRepository = incidentRepository;
-    this.mockMetricsService = mockMetricsService;
+    this.incidentMetricsService = incidentMetricsService;
     this.jdbcJson = jdbcJson;
   }
 
@@ -48,6 +48,8 @@ public class ActionProposalService {
     if (!actionProposalRepository.findByWorkflow(workflowInstanceId).isEmpty()) {
       return actionProposalRepository.findByWorkflow(workflowInstanceId);
     }
+    // MVP uses deterministic action generation so interview demos are stable.
+    // A later LLM implementation should preserve the same risk and approval gates.
     String evidenceJson = jdbcJson.stringify(Map.of(
         "diagnosisSummary", diagnosis.summary(),
         "runbooks", runbooks.stream().map(RunbookDocument::fileName).toList(),
@@ -140,7 +142,22 @@ public class ActionProposalService {
 
   @Transactional
   public ActionProposalResponse markOfflineExecuted(Long actionId, MarkOfflineExecutedRequest request) {
+    return recordResult(actionId, request);
+  }
+
+  @Transactional
+  public ActionProposalResponse recordResult(Long actionId, MarkOfflineExecutedRequest request) {
     ActionProposal proposal = findRequired(actionId);
+    List<ActionProposal> executedActions = actionProposalRepository.findExecutedByIncident(proposal.incidentId());
+    if (!executedActions.isEmpty() && executedActions.stream().noneMatch(action -> action.id().equals(actionId))) {
+      ActionProposal selected = executedActions.getFirst();
+      throw ApiException.conflict("Incident already selected action: " + selected.title());
+    }
+    if ("NOT_SELECTED".equals(proposal.status()) || "REJECTED".equals(proposal.status())) {
+      throw ApiException.conflict("Action proposal is not selectable: " + actionId);
+    }
+    // The system records that a human performed the action elsewhere. It never
+    // calls production rollback, SQL, scaling, or configuration APIs.
     actionProposalRepository.createApproval(
         proposal.id(),
         proposal.incidentId(),
@@ -157,8 +174,9 @@ public class ActionProposalService {
         request.resultDetail()
     );
     actionProposalRepository.updateStatus(actionId, "OFFLINE_EXECUTED");
+    actionProposalRepository.markUnselectedActions(proposal.incidentId(), actionId);
     Incident incident = incidentRepository.updateStatus(proposal.incidentId(), "RECOVERING");
-    mockMetricsService.recordRecoveringSnapshot(incident);
+    incidentMetricsService.recordRecoveringSnapshot(incident, proposal);
     return ActionProposalResponse.from(findRequired(actionId));
   }
 
@@ -168,23 +186,71 @@ public class ActionProposalService {
   }
 
   private String suggestedMediumTitle(Incident incident) {
-    if (containsAny(incident.title(), "支付", "payment")) {
+    String text = incidentText(incident);
+    if (containsAny(text, "qdrant", "vector", "向量")) {
+      return "启用 RAG 检索兜底并暂停批量向量写入";
+    }
+    if (containsAny(text, "rag", "retrieval", "召回", "检索", "无结果", "no chunks")) {
+      return "调整 RAG 召回参数并启用关键词检索兜底";
+    }
+    if (containsAny(text, "ai-service", "llm", "model provider", "模型调用", "模型服务")) {
+      return "启用 AI 服务超时降级和备用模型路由";
+    }
+    if (containsAny(text, "sse", "stream", "流式", "断流")) {
+      return "切换非流式响应并缩短 SSE 心跳间隔";
+    }
+    if (containsAny(text, "ingestion", "embedding", "知识库导入", "导入失败", "切片")) {
+      return "暂停失败批次导入并重跑目标文档 embedding";
+    }
+    if (containsAny(text, "graphrag", "neo4j", "cypher", "图谱")) {
+      return "关闭 GraphRAG fallback 并回退到向量检索";
+    }
+    if (containsAny(text, "支付", "payment")) {
       return "开启支付回调延迟重试";
     }
-    if (containsAny(incident.title(), "订单", "order")) {
+    if (containsAny(text, "订单", "order")) {
       return "临时启用订单创建参数兜底";
     }
     return "临时降级高风险依赖调用";
   }
 
   private String suggestedMediumType(Incident incident) {
-    if (containsAny(incident.title(), "支付", "payment")) {
+    String text = incidentText(incident);
+    if (containsAny(text, "qdrant", "vector", "向量")) {
+      return "ENABLE_RAG_RETRIEVAL_FALLBACK";
+    }
+    if (containsAny(text, "rag", "retrieval", "召回", "检索", "无结果", "no chunks")) {
+      return "TUNE_RAG_RETRIEVAL";
+    }
+    if (containsAny(text, "ai-service", "llm", "model provider", "模型调用", "模型服务")) {
+      return "ENABLE_AI_SERVICE_DEGRADATION";
+    }
+    if (containsAny(text, "sse", "stream", "流式", "断流")) {
+      return "ENABLE_NON_STREAMING_FALLBACK";
+    }
+    if (containsAny(text, "ingestion", "embedding", "知识库导入", "导入失败", "切片")) {
+      return "RETRY_KNOWLEDGE_INGESTION_BATCH";
+    }
+    if (containsAny(text, "graphrag", "neo4j", "cypher", "图谱")) {
+      return "DISABLE_GRAPHRAG_FALLBACK";
+    }
+    if (containsAny(text, "支付", "payment")) {
       return "ENABLE_DELAYED_RETRY";
     }
-    if (containsAny(incident.title(), "订单", "order")) {
+    if (containsAny(text, "订单", "order")) {
       return "ENABLE_INPUT_FALLBACK";
     }
     return "ENABLE_DEGRADATION";
+  }
+
+  private String incidentText(Incident incident) {
+    return String.join(" ",
+        valueOrEmpty(incident.title()),
+        valueOrEmpty(incident.serviceName()),
+        valueOrEmpty(incident.endpoint()),
+        valueOrEmpty(incident.exceptionType()),
+        valueOrEmpty(incident.summary())
+    );
   }
 
   private boolean containsAny(String value, String... needles) {
@@ -198,5 +264,9 @@ public class ActionProposalService {
       }
     }
     return false;
+  }
+
+  private String valueOrEmpty(String value) {
+    return value == null ? "" : value;
   }
 }

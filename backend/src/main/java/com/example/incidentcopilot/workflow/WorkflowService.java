@@ -7,10 +7,14 @@ import com.example.incidentcopilot.incident.Incident;
 import com.example.incidentcopilot.incident.IncidentRepository;
 import com.example.incidentcopilot.incident.IncidentService;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class WorkflowService {
+  private static final Logger log = LoggerFactory.getLogger(WorkflowService.class);
+
   private final IncidentService incidentService;
   private final IncidentRepository incidentRepository;
   private final WorkflowRepository workflowRepository;
@@ -36,16 +40,44 @@ public class WorkflowService {
     if ("CLOSED".equals(incident.status())) {
       throw ApiException.conflict("Closed incident cannot start workflow: " + incidentId);
     }
+    var latestWorkflow = workflowRepository.findLatestByIncident(incidentId);
+    if (latestWorkflow.isPresent() && isStillAwaitingOperator(latestWorkflow.get().status())) {
+      return WorkflowResponse.from(latestWorkflow.get());
+    }
     incidentRepository.updateWorkflowRunning(incidentId);
     WorkflowInstance instance = workflowRepository.createInstance(incidentId);
+    log.info(
+        "workflow_started workflowInstanceId={} incidentId={} incidentNo={} service={}",
+        instance.id(),
+        incidentId,
+        incident.incidentNo(),
+        incident.serviceName()
+    );
     WorkflowInstance finished = workflowEngine.run(new WorkflowContext(instance.id(), incident));
+    log.info(
+        "workflow_finished workflowInstanceId={} incidentId={} status={}",
+        finished.id(),
+        incidentId,
+        finished.status()
+    );
     return WorkflowResponse.from(finished);
+  }
+
+  private boolean isStillAwaitingOperator(String status) {
+    return "RUNNING".equals(status) || "WAITING_APPROVAL".equals(status);
   }
 
   public WorkflowResponse get(Long instanceId) {
     return workflowRepository.findInstance(instanceId)
         .map(WorkflowResponse::from)
         .orElseThrow(() -> ApiException.notFound("Workflow not found: " + instanceId));
+  }
+
+  public WorkflowResponse getLatestByIncidentOrNull(Long incidentId) {
+    incidentService.findRequired(incidentId);
+    return workflowRepository.findLatestByIncident(incidentId)
+        .map(WorkflowResponse::from)
+        .orElse(null);
   }
 
   public List<WorkflowNodeExecutionResponse> listNodes(Long instanceId) {

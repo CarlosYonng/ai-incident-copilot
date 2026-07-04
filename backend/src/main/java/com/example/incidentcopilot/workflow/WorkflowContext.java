@@ -4,6 +4,13 @@ import com.example.incidentcopilot.incident.Incident;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * In-memory state shared by workflow nodes during one synchronous workflow run.
+ *
+ * <p>Durable audit data is persisted by repositories. This context only carries
+ * transient values such as collected metrics, diagnosis evidence, runbooks, and
+ * final status hints between nodes.</p>
+ */
 public class WorkflowContext {
   private final Long workflowInstanceId;
   private final Incident incident;

@@ -1,5 +1,7 @@
 package com.example.incidentcopilot.action;
 
+import java.time.LocalDateTime;
+
 public record ActionProposalResponse(
     Long id,
     String title,
@@ -10,7 +12,9 @@ public record ActionProposalResponse(
     String impact,
     String precheck,
     boolean requiresApproval,
-    String status
+    String status,
+    LocalDateTime createdAt,
+    LocalDateTime updatedAt
 ) {
   public static ActionProposalResponse from(ActionProposal proposal) {
     return new ActionProposalResponse(
@@ -23,7 +27,9 @@ public record ActionProposalResponse(
         proposal.impact(),
         proposal.precheck(),
         proposal.requiresApproval(),
-        proposal.status()
+        proposal.status(),
+        proposal.createdAt(),
+        proposal.updatedAt()
     );
   }
 }

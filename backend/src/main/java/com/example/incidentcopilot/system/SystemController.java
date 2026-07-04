@@ -17,15 +17,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class SystemController {
   private final JdbcTemplate jdbcTemplate;
   private final String diagnosisMcpBaseUrl;
+  private final boolean diagnosisMcpFallbackEnabled;
   private final String runbookDir;
 
   public SystemController(
       JdbcTemplate jdbcTemplate,
       @Value("${incident-copilot.diagnosis-mcp-base-url}") String diagnosisMcpBaseUrl,
+      @Value("${incident-copilot.diagnosis-mcp-fallback-enabled}") boolean diagnosisMcpFallbackEnabled,
       @Value("${incident-copilot.runbook-dir}") String runbookDir
   ) {
     this.jdbcTemplate = jdbcTemplate;
     this.diagnosisMcpBaseUrl = diagnosisMcpBaseUrl;
+    this.diagnosisMcpFallbackEnabled = diagnosisMcpFallbackEnabled;
     this.runbookDir = runbookDir;
   }
 
@@ -37,7 +40,7 @@ public class SystemController {
     dependencies.put("diagnosisMcp", Map.of(
         "status", "OPTIONAL",
         "baseUrl", diagnosisMcpBaseUrl,
-        "fallbackEnabled", true
+        "fallbackEnabled", diagnosisMcpFallbackEnabled
     ));
     dependencies.put("runbooks", Map.of(
         "status", Files.isDirectory(Path.of(runbookDir)) ? "UP" : "DOWN",

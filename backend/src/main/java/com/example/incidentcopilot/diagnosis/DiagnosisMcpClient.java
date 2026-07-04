@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
@@ -17,19 +19,22 @@ import org.springframework.web.client.RestClient;
 
 @Component
 public class DiagnosisMcpClient {
+  private static final Logger log = LoggerFactory.getLogger(DiagnosisMcpClient.class);
   private static final AtomicLong JSON_RPC_ID = new AtomicLong(1);
 
   private final RestClient restClient;
   private final ObjectMapper objectMapper;
   private final ToolCallLogger toolCallLogger;
   private final String authToken;
+  private final boolean fallbackEnabled;
 
   public DiagnosisMcpClient(
       RestClient.Builder restClientBuilder,
       ObjectMapper objectMapper,
       ToolCallLogger toolCallLogger,
       @Value("${incident-copilot.diagnosis-mcp-base-url}") String baseUrl,
-      @Value("${incident-copilot.diagnosis-mcp-token}") String authToken
+      @Value("${incident-copilot.diagnosis-mcp-token}") String authToken,
+      @Value("${incident-copilot.diagnosis-mcp-fallback-enabled}") boolean fallbackEnabled
   ) {
     this.restClient = restClientBuilder
         .baseUrl(baseUrl)
@@ -38,9 +43,12 @@ public class DiagnosisMcpClient {
     this.objectMapper = objectMapper;
     this.toolCallLogger = toolCallLogger;
     this.authToken = authToken;
+    this.fallbackEnabled = fallbackEnabled;
   }
 
   public DiagnosisEvidence collectEvidence(Long workflowInstanceId, String nodeName, Incident incident) {
+    // The Copilot talks to diagnosis-service only through MCP JSON-RPC.
+    // Direct database reads are intentionally avoided to keep service ownership clear.
     List<String> logs = callTool(workflowInstanceId, nodeName, "search_logs", Map.of(
         "service", incident.serviceName(),
         "trace_id", valueOrEmpty(incident.traceId()),
@@ -132,6 +140,7 @@ public class DiagnosisMcpClient {
       }
       String responseBody = requestSpec.body(request).retrieve().body(String.class);
       Object parsed = parseToolResult(responseBody);
+      long durationMs = Duration.between(started, Instant.now()).toMillis();
       toolCallLogger.log(
           workflowInstanceId,
           nodeName,
@@ -140,20 +149,43 @@ public class DiagnosisMcpClient {
           parsed,
           true,
           null,
-          Duration.between(started, Instant.now()).toMillis()
+          durationMs
+      );
+      log.info(
+          "mcp_tool_call_succeeded workflowInstanceId={} node={} tool={} durationMs={}",
+          workflowInstanceId,
+          nodeName,
+          toolName,
+          durationMs
       );
       return parsed;
     } catch (RuntimeException exception) {
+      long durationMs = Duration.between(started, Instant.now()).toMillis();
+      Object responseForAudit = fallbackEnabled ? fallback : Map.of();
       toolCallLogger.log(
           workflowInstanceId,
           nodeName,
           toolName,
           request,
-          fallback,
+          responseForAudit,
           false,
           exception.getMessage(),
-          Duration.between(started, Instant.now()).toMillis()
+          durationMs
       );
+      log.warn(
+          "mcp_tool_call_failed workflowInstanceId={} node={} tool={} fallbackEnabled={} durationMs={} message={}",
+          workflowInstanceId,
+          nodeName,
+          toolName,
+          fallbackEnabled,
+          durationMs,
+          exception.getMessage()
+      );
+      if (!fallbackEnabled) {
+        // Strict mode is used for real-chain verification. A missing or unhealthy
+        // diagnosis-service should fail the workflow instead of silently demoing.
+        throw new IllegalStateException("Diagnosis MCP tool call failed in strict mode: " + toolName, exception);
+      }
       return fallback;
     }
   }
@@ -171,6 +203,8 @@ public class DiagnosisMcpClient {
       JsonNode textNode = objectMapper.readTree(text);
       return objectMapper.convertValue(textNode, Object.class);
     } catch (Exception parseException) {
+      // Some MCP tools may return plain text. Keep it visible to the workflow
+      // rather than discarding the evidence.
       return responseBody;
     }
   }

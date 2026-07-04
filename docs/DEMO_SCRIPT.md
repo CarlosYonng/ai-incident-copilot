@@ -12,23 +12,41 @@ docker compose up -d mysql diagnosis-service demo-service incident-copilot-backe
 http://localhost:3000
 ```
 
-## 2. 触发支付回调超时
+## 2. 注入支付回调超时告警
 
-在前端点击“触发支付回调超时”，或调用：
+在前端点击“注入 portfolio 支付告警”，或调用：
 
 ```http
-POST http://localhost:8080/api/demo/faults/payment-timeout
+POST http://localhost:8080/api/alerts/ingest
 Content-Type: application/json
 
 {
-  "autoCreateIncident": true
+  "eventId": "payment-alert-demo-001",
+  "source": "payment-gateway-apm",
+  "signalName": "支付回调超时",
+  "serviceName": "payment-service",
+  "endpoint": "/api/payment/callback",
+  "traceId": "trace-payment-timeout-001",
+  "exceptionType": "TimeoutError",
+  "summary": "支付网关回调链路 5 分钟窗口内 500 错误率和超时数同时升高",
+  "errorRate": 0.082,
+  "p95Latency": 3200,
+  "qps": 1260,
+  "affectedRequests": 238,
+  "severityHint": "P1",
+  "rawPayload": {
+    "businessOperation": "payment_callback",
+    "gateway": "sandbox-pay-gateway",
+    "alertWindow": "5m"
+  },
+  "startWorkflow": false
 }
 ```
 
 讲解点：
 
-- demo-service 模拟业务异常。
-- 异常日志推送到 diagnosis-service。
+- 这里模拟的是上游 APM/监控平台推送业务告警，不是直接创建 Incident。
+- Copilot 先写入 `alert_event`，再做阈值判断、幂等和 Incident 关联。
 - Incident Copilot 是上层协同系统。
 
 ## 3. 查看 Incident
@@ -37,12 +55,13 @@ Content-Type: application/json
 
 讲解点：
 
+- 入站事件面板展示原始告警来源、错误率、p95、影响请求数和入站决策。
 - Incident 中记录服务、接口、trace id、异常类型。
-- 当前状态为 `OPEN`。
+- 手动演示入口默认只完成告警入站，方便继续观察“启动 Workflow”按钮的作用。
 
 ## 4. 启动 Workflow
 
-点击“启动 Workflow”。
+点击“启动 Workflow”。如果使用的是 Grafana / Alertmanager webhook 生产入口，适配器可以自动设置 `startWorkflow=true`，此时可直接查看 Workflow 时间线。
 
 讲解点：
 
@@ -58,7 +77,7 @@ Content-Type: application/json
 ```json
 {
   "serviceName": "payment-service",
-  "errorRate": 6.8,
+  "errorRate": 0.076,
   "p95Latency": 3200,
   "qps": 160,
   "status": "degraded"
@@ -67,8 +86,8 @@ Content-Type: application/json
 
 讲解点：
 
-- MVP 先用 mock metrics。
-- 后续可替换为 Prometheus / Alertmanager。
+- 入站时会保存上游告警携带的 errorRate、p95、qps。
+- 当前版本用 Incident 指标快照表达故障从 `degraded` 到 `recovering` 的状态变化；真实系统可替换为 Prometheus / Grafana 查询。
 
 ## 6. 展示 DiagnosisMcpNode
 
@@ -97,9 +116,9 @@ Content-Type: application/json
 
 示例：
 
-1. 通知 order-service 负责人介入，风险低。
+1. 继续观察并补充支付链路日志，风险低。
 2. 开启支付回调延迟重试，风险中。
-3. 回滚 order-service 最近版本，风险高。
+3. 回滚 payment-service 最近版本或切换生产配置，风险高。
 
 讲解点：
 
@@ -107,9 +126,9 @@ Content-Type: application/json
 - 中高风险必须人工确认。
 - 高风险动作只生成建议，不自动执行。
 
-## 9. 人工标记线下已执行
+## 9. 人工记录处置结果
 
-对“开启支付回调延迟重试”点击“标记线下已执行”。
+对“开启支付回调延迟重试”点击“记录处理结果”。
 
 填写：
 
@@ -125,7 +144,7 @@ Content-Type: application/json
 
 ## 10. 展示指标恢复
 
-刷新 mock metrics：
+刷新 Incident 指标快照：
 
 ```json
 {
@@ -160,7 +179,6 @@ Content-Type: application/json
 
 讲解点：
 
-- mock metrics 进入 `recovered`。
+- 指标快照进入 `recovered`。
 - Incident 状态为 `CLOSED`。
 - 整个流程形成可审计闭环。
-

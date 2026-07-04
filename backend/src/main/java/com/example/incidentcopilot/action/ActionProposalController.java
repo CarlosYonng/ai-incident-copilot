@@ -47,6 +47,14 @@ public class ActionProposalController {
     return ApiResponse.ok(actionProposalService.markOfflineExecuted(actionId, request));
   }
 
+  @PostMapping("/api/actions/{actionId}/record-result")
+  public ApiResponse<ActionProposalResponse> recordResult(
+      @PathVariable Long actionId,
+      @Valid @RequestBody MarkOfflineExecutedRequest request
+  ) {
+    return ApiResponse.ok(actionProposalService.recordResult(actionId, request));
+  }
+
   @PostMapping("/api/actions/{actionId}/escalate")
   public ApiResponse<ActionProposalResponse> escalate(
       @PathVariable Long actionId,

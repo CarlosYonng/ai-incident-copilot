@@ -50,6 +50,11 @@ public class IncidentController {
     return ApiResponse.ok(workflowService.startIncidentWorkflow(id));
   }
 
+  @GetMapping("/{id}/workflow/latest")
+  public ApiResponse<WorkflowResponse> latestWorkflow(@PathVariable Long id) {
+    return ApiResponse.ok(workflowService.getLatestByIncidentOrNull(id));
+  }
+
   @PostMapping("/{id}/close")
   public ApiResponse<IncidentResponse> close(
       @PathVariable Long id,

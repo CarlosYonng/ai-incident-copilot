@@ -1,7 +1,64 @@
 ### 健康检查
 GET http://localhost:8080/api/health
 
-### 触发 Demo 支付回调超时故障
+### Grafana webhook：portfolio 支付回调超时告警入站
+POST http://localhost:8080/api/alerts/grafana
+Content-Type: application/json
+
+{
+  "alerts": [
+    {
+      "fingerprint": "payment-alert-demo-001",
+      "startsAt": "2026-07-04T00:00:00Z",
+      "labels": {
+        "alertname": "支付回调超时",
+        "service": "payment-service",
+        "endpoint": "/api/payment/callback",
+        "trace_id": "trace-payment-timeout-001",
+        "exception_type": "TimeoutError",
+        "severity": "P1",
+        "error_rate": "0.082",
+        "p95_latency": "3200",
+        "qps": "1260",
+        "affected_requests": "238"
+      },
+      "annotations": {
+        "summary": "portfolio 支付回调链路错误率和延迟同时升高",
+        "description": "5 分钟窗口内 payment-service callback timeout spike"
+      }
+    }
+  ]
+}
+
+### Alertmanager webhook：同一类告警的另一种入站格式
+POST http://localhost:8080/api/alerts/alertmanager
+Content-Type: application/json
+
+{
+  "alerts": [
+    {
+      "fingerprint": "payment-alert-demo-002",
+      "startsAt": "2026-07-04T00:02:00Z",
+      "labels": {
+        "alertname": "支付回调超时",
+        "service": "payment-service",
+        "endpoint": "/api/payment/callback",
+        "trace_id": "trace-payment-timeout-002",
+        "exception_type": "TimeoutError",
+        "severity": "P1"
+      },
+      "annotations": {
+        "summary": "portfolio 支付回调超时告警",
+        "error_rate": "0.082",
+        "p95_latency": "3200",
+        "qps": "1260",
+        "affected_requests": "238"
+      }
+    }
+  ]
+}
+
+### 本地兼容 demo：触发支付回调超时样例故障
 POST http://localhost:8080/api/demo/faults/payment-timeout
 Content-Type: application/json
 
@@ -47,8 +104,8 @@ GET http://localhost:8080/api/incidents/1/actions
 ### 查询 MCP / LLM 工具调用审计
 GET http://localhost:8080/api/workflows/1/tool-calls
 
-### 标记线下已执行
-POST http://localhost:8080/api/actions/1/mark-offline-executed
+### 记录处置结果
+POST http://localhost:8080/api/actions/1/record-result
 Content-Type: application/json
 
 {
@@ -56,8 +113,8 @@ Content-Type: application/json
   "resultDetail": "已在线下通过值班系统开启延迟重试，本系统只记录处理结果"
 }
 
-### 查询模拟指标
-GET http://localhost:8080/api/demo/metrics/1
+### 查询 Incident 指标快照
+GET http://localhost:8080/api/incidents/1/metrics
 
 ### 生成复盘
 POST http://localhost:8080/api/incidents/1/generate-postmortem
