@@ -12,14 +12,33 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
+/**
+ * 告警事件数据访问层。
+ *
+ * <p>使用 JdbcTemplate 对 alert_event 表进行 CRUD 操作，包括创建告警事件、
+ * 按 ID/EventId/IncidentId 查询、以及标注忽略/关联/创建故障单等状态变更。</p>
+ */
 @Repository
 public class AlertEventRepository {
+  /** Spring JDBC 模板，用于执行 SQL 操作。 */
   private final JdbcTemplate jdbcTemplate;
 
+  /**
+   * 构造仓库实例。
+   *
+   * @param jdbcTemplate JDBC 模板
+   */
   public AlertEventRepository(JdbcTemplate jdbcTemplate) {
     this.jdbcTemplate = jdbcTemplate;
   }
 
+  /**
+   * 创建一条新的告警事件记录。
+   *
+   * @param request        告警入站请求
+   * @param rawPayloadJson 原始 webhook 负载 JSON
+   * @return 创建完成的告警事件，包含自增主键
+   */
   public AlertEvent create(AlertIngestRequest request, String rawPayloadJson) {
     KeyHolder keyHolder = new GeneratedKeyHolder();
     jdbcTemplate.update(connection -> {
@@ -48,6 +67,12 @@ public class AlertEventRepository {
     return findById(keyHolder.getKey().longValue()).orElseThrow();
   }
 
+  /**
+   * 根据主键 ID 查询告警事件。
+   *
+   * @param id 主键 ID
+   * @return 包含告警事件的 Optional
+   */
   public Optional<AlertEvent> findById(Long id) {
     List<AlertEvent> events = jdbcTemplate.query(
         "SELECT * FROM alert_event WHERE id = ?",
@@ -57,6 +82,12 @@ public class AlertEventRepository {
     return events.stream().findFirst();
   }
 
+  /**
+   * 根据外部系统事件 ID 查询告警事件（用于幂等去重）。
+   *
+   * @param eventId 外部系统的告警事件唯一标识
+   * @return 包含告警事件的 Optional
+   */
   public Optional<AlertEvent> findByEventId(String eventId) {
     List<AlertEvent> events = jdbcTemplate.query(
         "SELECT * FROM alert_event WHERE event_id = ?",
@@ -66,6 +97,14 @@ public class AlertEventRepository {
     return events.stream().findFirst();
   }
 
+  /**
+   * 查询指定故障单关联的所有告警事件。
+   *
+   * <p>结果按接收时间和主键降序排列。</p>
+   *
+   * @param incidentId 故障单 ID
+   * @return 告警事件列表
+   */
   public List<AlertEvent> findByIncident(Long incidentId) {
     return jdbcTemplate.query("""
         SELECT * FROM alert_event
@@ -74,6 +113,13 @@ public class AlertEventRepository {
         """, rowMapper(), incidentId);
   }
 
+  /**
+   * 将告警事件标记为忽略。
+   *
+   * @param id     告警事件 ID
+   * @param reason 忽略原因
+   * @return 更新后的告警事件
+   */
   public AlertEvent markIgnored(Long id, String reason) {
     jdbcTemplate.update("""
         UPDATE alert_event
@@ -83,6 +129,14 @@ public class AlertEventRepository {
     return findById(id).orElseThrow();
   }
 
+  /**
+   * 将告警事件标记为已创建故障单。
+   *
+   * @param id         告警事件 ID
+   * @param incidentId 新创建的故障单 ID
+   * @param reason     关联原因
+   * @return 更新后的告警事件
+   */
   public AlertEvent markIncidentCreated(Long id, Long incidentId, String reason) {
     jdbcTemplate.update("""
         UPDATE alert_event
@@ -92,6 +146,14 @@ public class AlertEventRepository {
     return findById(id).orElseThrow();
   }
 
+  /**
+   * 将告警事件标记为已关联到现有故障单。
+   *
+   * @param id         告警事件 ID
+   * @param incidentId 关联的故障单 ID
+   * @param reason     关联原因
+   * @return 更新后的告警事件
+   */
   public AlertEvent markCorrelated(Long id, Long incidentId, String reason) {
     jdbcTemplate.update("""
         UPDATE alert_event
@@ -101,6 +163,14 @@ public class AlertEventRepository {
     return findById(id).orElseThrow();
   }
 
+  /**
+   * 设置可空的整型参数。
+   *
+   * @param statement SQL 预编译语句
+   * @param index     参数索引（从 1 开始）
+   * @param value     整型值，可为 null
+   * @throws java.sql.SQLException SQL 异常
+   */
   private void setNullableInteger(PreparedStatement statement, int index, Integer value) throws java.sql.SQLException {
     if (value == null) {
       statement.setObject(index, null);
@@ -109,6 +179,11 @@ public class AlertEventRepository {
     }
   }
 
+  /**
+   * 创建告警事件的行映射器。
+   *
+   * @return RowMapper 实例
+   */
   private RowMapper<AlertEvent> rowMapper() {
     return (rs, rowNum) -> new AlertEvent(
         rs.getLong("id"),
@@ -134,14 +209,32 @@ public class AlertEventRepository {
     );
   }
 
+  /**
+   * 将可能为 null 的 Object 转换为 Long。
+   *
+   * @param value 数据库查询结果中的对象
+   * @return Long 值，或 null
+   */
   private Long nullableLong(Object value) {
     return value == null ? null : ((Number) value).longValue();
   }
 
+  /**
+   * 将可能为 null 的 Object 转换为 Integer。
+   *
+   * @param value 数据库查询结果中的对象
+   * @return Integer 值，或 null
+   */
   private Integer nullableInteger(Object value) {
     return value == null ? null : ((Number) value).intValue();
   }
 
+  /**
+   * 将 java.sql.Timestamp 转换为 LocalDateTime。
+   *
+   * @param timestamp SQL 时间戳，可为 null
+   * @return LocalDateTime 值，或 null
+   */
   private LocalDateTime toLocalDateTime(Timestamp timestamp) {
     return timestamp == null ? null : timestamp.toLocalDateTime();
   }

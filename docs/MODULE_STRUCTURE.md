@@ -77,6 +77,7 @@ frontend/src/
 - `PRD.md`: 产品范围。
 - `TECH_DESIGN.md`: 技术架构。
 - `DATABASE_SCHEMA.md`: 数据库表、字段、状态和索引说明。
+- `BACKEND_CODE_WALKTHROUGH.md`: 后端业务链路、代码调用关系、数据流转和脚本说明。
 - `API.md`: REST API。
 - `RUNNING.md`: 本地开发和 Docker Compose 运行说明。
 - `DEMO_SCRIPT.md`: 演示步骤。

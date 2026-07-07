@@ -24,8 +24,17 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
+/**
+ * ActionProposalService 的单元测试。
+ * 测试故障处置方案（Action Proposal）的生成、标记离线执行、以及重复处置拒绝等核心业务逻辑。
+ */
 class ActionProposalServiceTest {
 
+  /**
+   * 验证 generateDefaults 方法能为支付超时故障生成低、中、高三种风险的处置方案。
+   * 预期返回 3 个方案，风险等级分别为 LOW / MEDIUM / HIGH，
+   * 并且 MEDIUM 级别方案的标题、行动类型和审批标记正确。
+   */
   @Test
   void generateDefaultsCreatesLowMediumAndHighRiskProposals() {
     ActionProposalRepository actionRepository = mock(ActionProposalRepository.class);
@@ -59,6 +68,10 @@ class ActionProposalServiceTest {
     assertThat(proposals.get(1).requiresApproval()).isTrue();
   }
 
+  /**
+   * 验证对于 Portfolio Qdrant 向量库不可用的故障，generateDefaults 能生成业务特定的
+   * MEDIUM 风险处置方案（启用 RAG 检索兜底并暂停批量向量写入）。
+   */
   @Test
   void generateDefaultsCreatesPortfolioSpecificMediumRiskProposal() {
     ActionProposalRepository actionRepository = mock(ActionProposalRepository.class);
@@ -91,6 +104,11 @@ class ActionProposalServiceTest {
   }
 
 
+  /**
+   * 验证 markOfflineExecuted 方法能正确记录审批记录、行动记录、
+   * 将方案状态更新为 OFFLINE_EXECUTED、标记其他方案为未选中，
+   * 并触发恢复中的指标快照记录。
+   */
   @Test
   void markOfflineExecutedRecordsApprovalActionRecordAndRecoveringMetrics() {
     ActionProposalRepository actionRepository = mock(ActionProposalRepository.class);
@@ -117,6 +135,10 @@ class ActionProposalServiceTest {
     verify(metricsService).recordRecoveringSnapshot(recoveringIncident, pending);
   }
 
+  /**
+   * 验证当同一故障单已有已执行的处置方案时，再次调用 recordResult 会抛出异常并提示
+   * "该故障单已选择处置方案"，防止重复处置。
+   */
   @Test
   void recordResultRejectsSecondSelectedActionForSameIncident() {
     ActionProposalRepository actionRepository = mock(ActionProposalRepository.class);
@@ -131,9 +153,17 @@ class ActionProposalServiceTest {
     assertThatThrownBy(() -> service.recordResult(
         301L,
         new MarkOfflineExecutedRequest("sre-demo", "try another action")
-    )).hasMessageContaining("Incident already selected action");
+    )).hasMessageContaining("该故障单已选择处置方案");
   }
 
+  /**
+   * 创建 ActionProposalService 实例，注入 Mock 依赖。
+   *
+   * @param actionRepository    ActionProposalRepository Mock
+   * @param incidentRepository  IncidentRepository Mock
+   * @param metricsService      IncidentMetricsService Mock
+   * @return ActionProposalService 实例
+   */
   private ActionProposalService newService(
       ActionProposalRepository actionRepository,
       IncidentRepository incidentRepository,
@@ -147,6 +177,19 @@ class ActionProposalServiceTest {
     );
   }
 
+  /**
+   * 构造一个 ActionProposal 对象。其 ID 根据风险等级自动分配：
+   * LOW -> 101L, MEDIUM -> 200L, HIGH -> 301L。
+   *
+   * @param incidentId         故障单 ID
+   * @param workflowInstanceId 工作流实例 ID
+   * @param title              方案标题
+   * @param actionType         行动类型
+   * @param riskLevel          风险等级
+   * @param status             状态
+   * @param requiresApproval   是否需要审批
+   * @return ActionProposal 实例
+   */
   private ActionProposal proposal(
       Long incidentId,
       Long workflowInstanceId,
@@ -174,10 +217,21 @@ class ActionProposalServiceTest {
     );
   }
 
+  /**
+   * 构造一个默认状态（WAITING_APPROVAL）的支付超时故障单。
+   *
+   * @return Incident 实例
+   */
   private Incident paymentIncident() {
     return paymentIncident("WAITING_APPROVAL");
   }
 
+  /**
+   * 构造一个指定状态的支付超时故障单。
+   *
+   * @param status 故障状态（如 WAITING_APPROVAL / RECOVERING）
+   * @return Incident 实例
+   */
   private Incident paymentIncident(String status) {
     return new Incident(
         1L,
@@ -197,6 +251,11 @@ class ActionProposalServiceTest {
     );
   }
 
+  /**
+   * 构造一个 Portfolio Qdrant 向量检索超时的故障单。
+   *
+   * @return Incident 实例
+   */
   private Incident portfolioQdrantIncident() {
     return new Incident(
         2L,
@@ -217,6 +276,11 @@ class ActionProposalServiceTest {
   }
 
 
+  /**
+   * 构造一个默认的诊断证据对象，模拟支付链路超时的诊断结果。
+   *
+   * @return DiagnosisEvidence 实例
+   */
   private DiagnosisEvidence diagnosisEvidence() {
     return new DiagnosisEvidence(
         "支付链路超时",

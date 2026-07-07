@@ -11,8 +11,15 @@ import com.example.incidentcopilot.workflow.WorkflowContext;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 
+/**
+ * SeverityClassifierNode 的单元测试。
+ * 测试故障严重等级分类逻辑：根据故障标题、异常类型和摘要信息自动判定 P1/P2/P3 等级。
+ */
 class SeverityClassifierNodeTest {
 
+  /**
+   * 验证支付超时故障（TimeoutError、高延迟）能正确分类为 P1 级别。
+   */
   @Test
   void classifiesPaymentTimeoutAsP1() {
     IncidentRepository incidentRepository = mock(IncidentRepository.class);
@@ -31,6 +38,9 @@ class SeverityClassifierNodeTest {
     verify(incidentRepository).updateSeverity(1L, "P1");
   }
 
+  /**
+   * 验证空指针异常（NullPointerException）的故障能正确分类为 P2 级别。
+   */
   @Test
   void classifiesNullPointerAsP2() {
     IncidentRepository incidentRepository = mock(IncidentRepository.class);
@@ -48,6 +58,9 @@ class SeverityClassifierNodeTest {
     verify(incidentRepository).updateSeverity(1L, "P2");
   }
 
+  /**
+   * 验证信号较弱的故障（Warning 级别、非关键描述）能正确分类为 P3 级别。
+   */
   @Test
   void classifiesLowSignalIncidentAsP3() {
     IncidentRepository incidentRepository = mock(IncidentRepository.class);
@@ -65,6 +78,15 @@ class SeverityClassifierNodeTest {
     verify(incidentRepository).updateSeverity(1L, "P3");
   }
 
+  /**
+   * 构造一个指定属性的故障单对象。
+   *
+   * @param title         故障标题
+   * @param serviceName   服务名称
+   * @param exceptionType 异常类型
+   * @param summary       故障摘要
+   * @return Incident 实例
+   */
   private Incident incident(String title, String serviceName, String exceptionType, String summary) {
     return new Incident(
         1L,

@@ -3,6 +3,9 @@ set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:8080/api}"
 
+# 端到端冒烟用例：注入告警 -> 创建 Incident -> 启动 Workflow ->
+# 查询节点/工具审计 -> 记录人工处置结果 -> 生成复盘 -> 关闭 Incident。
+# 该脚本只调用 HTTP API，不依赖前端，适合作为后端改动后的第一道回归检查。
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "[smoke] missing required command: $1" >&2

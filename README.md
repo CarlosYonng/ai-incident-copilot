@@ -4,6 +4,9 @@ AI Incident Copilot 是一个面向“被关注告警”的智能故障协同处
 
 项目定位不是替代 SRE 自动执行生产变更，而是把告警后的证据收集、诊断编排、风险分级、人工确认和复盘归档标准化。中高风险动作只生成建议和审批卡片，由人确认并在线下执行，系统负责记录过程和结果。
 
+更清晰的职责边界和优化路线见 `docs/PROJECT_SCOPE.md`。
+第一次接手项目建议先读 `docs/BACKEND_CODE_WALKTHROUGH.md`，里面按告警入站、Incident、Workflow、MCP、处置方案、复盘和脚本解释了后端业务链路与数据流转。
+
 ## 核心价值
 
 - **告警入站统一化**：支持统一告警模型，并提供 Grafana / Alertmanager webhook 适配。
@@ -94,10 +97,18 @@ frontend React console
 
 ```text
 ai-incident-copilot/
-  backend/                 Spring Boot 后端
-  frontend/                React 控制台
-  database/                初始化 SQL 和 schema
+  README.md
+  backend/                 Spring Boot 后端 (Java 21, Spring Boot 3)
+    src/main/java/com/example/incidentcopilot/
+    src/main/resources/db/migration/
+    pom.xml
+    Dockerfile
+  frontend/                React 控制台 (TypeScript, Vite)
+    src/
+    package.json
+    Dockerfile
   docs/                    产品、技术、API、运行、演示文档
+  database/                初始化 SQL 和 schema
   prompts/                 处置方案、严重级别、复盘等提示词
   runbooks/                故障处置知识库
   scripts/                 启停、初始化、smoke test 脚本

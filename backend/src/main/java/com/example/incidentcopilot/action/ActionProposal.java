@@ -3,25 +3,24 @@ package com.example.incidentcopilot.action;
 import java.time.LocalDateTime;
 
 /**
- * Candidate remediation action generated from diagnosis, metrics, and runbook evidence.
+ * 基于诊断证据、指标快照和 Runbook 生成的候选处置方案。
  *
- * <p>The system records suggestions and human decisions. It does not execute
- * production rollback, SQL, scaling, or configuration APIs directly.</p>
+ * <p>系统只记录建议、审批和线下执行结果，不直接调用生产回滚、SQL、扩缩容或配置变更接口。</p>
  *
- * @param id database primary key
- * @param incidentId incident that owns the proposal
- * @param workflowInstanceId workflow instance that generated the proposal
- * @param title operator-facing title
- * @param actionType stable action code used by UI and audit records
- * @param riskLevel LOW, MEDIUM, or HIGH
- * @param reason why this action is recommended
- * @param evidenceJson serialized diagnosis/runbook/severity evidence
- * @param impact expected business or technical impact
- * @param precheck checks required before execution
- * @param requiresApproval whether human approval is required
- * @param status proposal status such as READY, PENDING, APPROVED, REJECTED, ESCALATED, OFFLINE_EXECUTED
- * @param createdAt creation timestamp
- * @param updatedAt last update timestamp
+ * @param id 数据库主键
+ * @param incidentId 所属故障单 ID
+ * @param workflowInstanceId 生成该方案的工作流实例 ID
+ * @param title 面向值班人员展示的方案标题
+ * @param actionType 稳定动作编码，用于前端展示和审计记录
+ * @param riskLevel 风险等级：LOW、MEDIUM、HIGH
+ * @param reason 推荐该方案的原因
+ * @param evidenceJson 生成方案时引用的诊断、Runbook、严重等级等证据
+ * @param impact 预期业务或技术影响
+ * @param precheck 执行前需要人工确认的检查项
+ * @param requiresApproval 是否需要人工审批
+ * @param status 方案状态，例如 READY、PENDING、APPROVED、REJECTED、ESCALATED、OFFLINE_EXECUTED
+ * @param createdAt 创建时间
+ * @param updatedAt 最后更新时间
  */
 public record ActionProposal(
     Long id,
