@@ -3,21 +3,20 @@ package com.example.incidentcopilot.audit;
 import java.time.LocalDateTime;
 
 /**
- * Audit record for a tool call made by a workflow node.
+ * 工作流节点发起外部工具调用时生成的审计记录。
  *
- * <p>This is intentionally separate from node execution output: one node may
- * call several MCP tools, and each request/response needs its own traceable row.</p>
+ * <p>工具调用审计与节点输出分开保存：一个节点可能调用多个 MCP 工具，每次请求和响应都需要独立追踪。</p>
  *
- * @param id database primary key
- * @param workflowInstanceId workflow instance that triggered the tool call
- * @param nodeName node that made the call
- * @param toolName MCP or external tool name
- * @param requestJson serialized request payload
- * @param responseJson serialized response payload or fallback evidence
- * @param success whether the call succeeded
- * @param errorMessage failure message when present
- * @param durationMs call duration in milliseconds
- * @param createdAt creation timestamp
+ * @param id 数据库主键
+ * @param workflowInstanceId 触发工具调用的工作流实例 ID
+ * @param nodeName 发起调用的节点名称
+ * @param toolName MCP 或外部工具名称
+ * @param requestJson 序列化后的请求体
+ * @param responseJson 序列化后的响应体或 fallback 证据
+ * @param success 调用是否成功
+ * @param errorMessage 失败信息
+ * @param durationMs 调用耗时，单位毫秒
+ * @param createdAt 创建时间
  */
 public record ToolCallLog(
     Long id,

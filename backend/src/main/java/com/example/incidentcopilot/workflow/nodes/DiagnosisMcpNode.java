@@ -11,9 +11,20 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Order(30)
+/**
+ * MCP 诊断节点。
+ *
+ * <p>通过 DiagnosisMcpClient 调用 diagnosis-service 的日志、代码、工单和报告工具，并把证据写入上下文。</p>
+ */
 public class DiagnosisMcpNode implements WorkflowNode {
+  /** MCP 诊断客户端，用于调用 diagnosis-service 的日志、代码、工单等分析工具收集证据。 */
   private final DiagnosisMcpClient diagnosisMcpClient;
 
+  /**
+   * 构造 MCP 诊断节点。
+   *
+   * @param diagnosisMcpClient MCP 诊断客户端
+   */
   public DiagnosisMcpNode(DiagnosisMcpClient diagnosisMcpClient) {
     this.diagnosisMcpClient = diagnosisMcpClient;
   }
@@ -28,6 +39,16 @@ public class DiagnosisMcpNode implements WorkflowNode {
     return "MCP";
   }
 
+  /**
+   * 执行 MCP 诊断逻辑。
+   *
+   * <p>从 Incident 中提取服务名、TraceId 和异常类型作为输入参数，
+   * 调用 DiagnosisMcpClient 收集诊断证据，并将结果写入工作流上下文的 "diagnosis" 键。
+   * 输出包含摘要、日志、代码提示、关联工单、报告 ID 和是否使用了降级策略。</p>
+   *
+   * @param context 工作流上下文，包含当前 Incident
+   * @return 节点执行结果，输出为诊断证据的关键字段
+   */
   @Override
   public NodeResult execute(WorkflowContext context) {
     Map<String, Object> input = Map.of(

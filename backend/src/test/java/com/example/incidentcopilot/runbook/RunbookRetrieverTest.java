@@ -10,11 +10,20 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+/**
+ * RunbookRetriever 的单元测试。
+ * 测试 Runbook 检索功能：包括基于故障信息的相关性排序、目录缺失时的兜底策略，
+ * 以及不同业务场景下的匹配准确度。
+ */
 class RunbookRetrieverTest {
 
   @TempDir
   Path tempDir;
 
+  /**
+   * 验证 search 方法能根据故障信息对 Runbook 进行相关性排序，
+   * 支付超时相关的 Runbook 应排在与其无关的 Redis 缓存故障 Runbook 之前。
+   */
   @Test
   void searchRanksPaymentRunbookAboveUnrelatedRunbook() throws Exception {
     Files.writeString(tempDir.resolve("payment-callback-timeout.md"), """
@@ -37,6 +46,10 @@ class RunbookRetrieverTest {
     assertThat(results.getFirst().excerpt()).contains("payment-service");
   }
 
+  /**
+   * 验证当 Runbook 目录不存在时，search 方法返回兜底 Runbook，
+   * 且兜底 Runbook 的文件名和标题中包含正确的故障服务信息。
+   */
   @Test
   void searchUsesFallbackWhenDirectoryDoesNotExist() {
     RunbookRetriever retriever = new RunbookRetriever(tempDir.resolve("missing").toString());
@@ -48,6 +61,10 @@ class RunbookRetrieverTest {
     assertThat(results.getFirst().title()).contains("payment-service");
   }
 
+  /**
+   * 验证对于 AI Agent Portfolio RAG 检索无结果的故障，
+   * search 方法能优先匹配对应的 RAG Runbook 而非支付超时 Runbook。
+   */
   @Test
   void searchMatchesPortfolioRagRunbook() throws Exception {
     Files.writeString(tempDir.resolve("portfolio-rag-retrieval-empty.md"), """
@@ -69,6 +86,11 @@ class RunbookRetrieverTest {
     assertThat(results.getFirst().title()).contains("RAG");
   }
 
+  /**
+   * 构造一个支付超时的故障单对象。
+   *
+   * @return Incident 实例
+   */
   private Incident paymentIncident() {
     return new Incident(
         1L,
@@ -88,6 +110,11 @@ class RunbookRetrieverTest {
     );
   }
 
+  /**
+   * 构造一个 AI Agent Portfolio RAG 检索无结果的故障单对象。
+   *
+   * @return Incident 实例
+   */
   private Incident portfolioRagIncident() {
     return new Incident(
         2L,

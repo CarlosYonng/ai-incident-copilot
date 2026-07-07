@@ -3,25 +3,24 @@ package com.example.incidentcopilot.incident;
 import java.time.LocalDateTime;
 
 /**
- * Primary incident domain record.
+ * 故障单核心领域记录。
  *
- * <p>The record mirrors the {@code incident} table and is intentionally kept as
- * a data carrier: lifecycle decisions live in services and workflow nodes.</p>
+ * <p>该 record 与 {@code incident} 表字段保持一致，只承载数据；生命周期判断放在 Service 和工作流节点中。</p>
  *
- * @param id database primary key
- * @param incidentNo operator-facing incident number
- * @param title short incident title
- * @param serviceName affected service
- * @param endpoint affected endpoint or job when known
- * @param severity business severity such as P0/P1/P2/P3
- * @param status lifecycle status such as OPEN, WORKFLOW_RUNNING, RECOVERING, FAILED, CLOSED
- * @param source creation source such as MANUAL, DEMO, ALERT
- * @param traceId trace identifier used for log correlation
- * @param exceptionType observed exception or failure type
- * @param summary alert summary or operator context
- * @param createdAt creation timestamp
- * @param updatedAt last update timestamp
- * @param closedAt closure timestamp
+ * @param id 数据库主键
+ * @param incidentNo 面向值班人员展示的故障编号
+ * @param title 简短故障标题
+ * @param serviceName 受影响服务
+ * @param endpoint 受影响接口或任务名称
+ * @param severity 业务严重等级，例如 P0/P1/P2/P3
+ * @param status 生命周期状态，例如 OPEN、WORKFLOW_RUNNING、RECOVERING、FAILED、CLOSED
+ * @param source 创建来源，例如 MANUAL、DEMO、ALERT
+ * @param traceId 用于日志关联的链路追踪 ID
+ * @param exceptionType 观察到的异常或失败类型
+ * @param summary 告警摘要或人工补充上下文
+ * @param createdAt 创建时间
+ * @param updatedAt 最后更新时间
+ * @param closedAt 关闭时间
  */
 public record Incident(
     Long id,

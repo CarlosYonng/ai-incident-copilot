@@ -3,22 +3,21 @@ package com.example.incidentcopilot.report;
 import java.time.LocalDateTime;
 
 /**
- * Generated incident postmortem.
+ * 系统生成的故障复盘报告。
  *
- * <p>Structured JSON fields feed the UI, while {@code reportContent} keeps a
- * rendered long-form report suitable for copy/paste into external systems.</p>
+ * <p>结构化 JSON 字段供前端展示，{@code reportContent} 保存可复制到外部系统的长文本报告。</p>
  *
- * @param id database primary key
- * @param incidentId incident summarized by this report
- * @param summary short incident summary
- * @param rootCause root cause analysis
- * @param impact user or business impact
- * @param timelineJson serialized incident timeline
- * @param actionItemsJson serialized follow-up action items
- * @param preventionItemsJson serialized preventive improvements
- * @param reportContent rendered postmortem content
- * @param createdAt creation timestamp
- * @param updatedAt last update timestamp
+ * @param id 数据库主键
+ * @param incidentId 复盘对应的故障单 ID
+ * @param summary 简短故障摘要
+ * @param rootCause 根因分析
+ * @param impact 用户或业务影响
+ * @param timelineJson 序列化后的故障时间线
+ * @param actionItemsJson 序列化后的后续行动项
+ * @param preventionItemsJson 序列化后的预防改进项
+ * @param reportContent 渲染后的复盘正文
+ * @param createdAt 创建时间
+ * @param updatedAt 最后更新时间
  */
 public record PostmortemReport(
     Long id,

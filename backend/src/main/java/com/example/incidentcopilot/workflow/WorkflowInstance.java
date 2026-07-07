@@ -3,20 +3,19 @@ package com.example.incidentcopilot.workflow;
 import java.time.LocalDateTime;
 
 /**
- * Runtime state for one execution of the fixed incident handling workflow.
+ * 固定故障处理工作流的一次运行实例。
  *
- * <p>Each incident can have multiple workflow instances over time. Node-level
- * evidence and timing are stored separately in {@link WorkflowNodeExecution}.</p>
+ * <p>同一个故障单可以多次启动工作流；节点级证据和耗时单独保存在 {@link WorkflowNodeExecution}。</p>
  *
- * @param id database primary key
- * @param incidentId incident handled by this workflow
- * @param workflowType workflow definition name
- * @param status execution status such as CREATED, RUNNING, SUCCESS, WAITING_APPROVAL, FAILED
- * @param currentNode node currently running, or {@code null} after completion
- * @param startedAt workflow start timestamp
- * @param finishedAt workflow terminal timestamp
- * @param createdAt creation timestamp
- * @param updatedAt last update timestamp
+ * @param id 数据库主键
+ * @param incidentId 本次工作流处理的故障单 ID
+ * @param workflowType 工作流定义名称
+ * @param status 执行状态，例如 CREATED、RUNNING、SUCCESS、WAITING_APPROVAL、FAILED
+ * @param currentNode 当前运行节点，结束后为 {@code null}
+ * @param startedAt 工作流开始时间
+ * @param finishedAt 工作流结束时间
+ * @param createdAt 创建时间
+ * @param updatedAt 最后更新时间
  */
 public record WorkflowInstance(
     Long id,

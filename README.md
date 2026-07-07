@@ -3,6 +3,7 @@
 AI Incident Copilot 是一个面向“被关注告警”的 Incident 响应编排服务。`diagnosis-service` 负责接收和沉淀全量异常证据，并通过 MCP tools 提供日志、代码、历史工单和诊断报告能力；本项目只处理 Grafana、Alertmanager、portfolio 监控等来源推送过来的告警事件：创建或关联 Incident，调用 `diagnosis-service` MCP 获取诊断证据，编排处置方案、处理记录、恢复观察和复盘报告，形成可审计的故障处理闭环。
 
 更清晰的职责边界和优化路线见 `docs/PROJECT_SCOPE.md`。
+第一次接手项目建议先读 `docs/BACKEND_CODE_WALKTHROUGH.md`，里面按告警入站、Incident、Workflow、MCP、处置方案、复盘和脚本解释了后端业务链路与数据流转。
 
 ## 项目边界
 
@@ -43,6 +44,7 @@ ai-incident-copilot/
   docs/
     PRD.md
     TECH_DESIGN.md
+    BACKEND_CODE_WALKTHROUGH.md
     API.md
     FRONTEND_DESIGN.md
     DEVELOPMENT_PLAN.md

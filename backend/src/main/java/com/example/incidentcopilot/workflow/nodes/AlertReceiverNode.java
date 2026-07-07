@@ -10,6 +10,11 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Order(10)
+/**
+ * 告警接收节点。
+ *
+ * <p>这是工作流时间线的第一步，用于把故障单基础字段固化为可审计输入输出。</p>
+ */
 public class AlertReceiverNode implements WorkflowNode {
 
   @Override
@@ -22,6 +27,15 @@ public class AlertReceiverNode implements WorkflowNode {
     return "ALERT";
   }
 
+  /**
+   * 执行告警接收逻辑。
+   *
+   * <p>将 Incident 的基础字段（ID、编号、来源、TraceId）记录为输入，
+   * 将标题、服务名、端点、摘要记录为输出，并写入工作流上下文的 "alert" 键。</p>
+   *
+   * @param context 工作流上下文，包含当前 Incident
+   * @return 节点执行结果，输入为告警原始字段，输出为已接收的告警摘要
+   */
   @Override
   public NodeResult execute(WorkflowContext context) {
     Incident incident = context.incident();

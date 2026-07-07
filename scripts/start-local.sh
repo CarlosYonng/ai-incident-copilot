@@ -14,6 +14,10 @@ FRONTEND_STARTED=false
 mkdir -p "${LOG_DIR}"
 mkdir -p "${BACKEND_LOG_DIR}"
 
+# 本地开发入口脚本：
+# - 后端在宿主机启动 Spring Boot，前端启动 Vite。
+# - MySQL 默认复用相邻 ai-agent-infra-stack。
+# - diagnosis-service 不在线时默认启用 fallback，保证演示链路仍可跑通。
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "[local] missing required command: $1" >&2
@@ -138,6 +142,7 @@ export SPRING_DATASOURCE_USERNAME="incident_copilot"
 export SPRING_DATASOURCE_PASSWORD="incident_copilot123"
 export SERVER_PORT="${SERVER_PORT:-${BACKEND_PORT}}"
 export CORS_ALLOWED_ORIGINS="${CORS_ALLOWED_ORIGINS:-http://localhost:${FRONTEND_PORT},http://127.0.0.1:${FRONTEND_PORT}}"
+# 本机开发使用 localhost，Docker Compose 场景由 docker-compose.yml 注入 host.docker.internal。
 export DIAGNOSIS_MCP_BASE_URL="${DIAGNOSIS_MCP_BASE_URL:-http://localhost:8200}"
 export DIAGNOSIS_MCP_TOKEN="${DIAGNOSIS_MCP_TOKEN:-}"
 export DIAGNOSIS_MCP_FALLBACK_ENABLED="${DIAGNOSIS_MCP_FALLBACK_ENABLED:-true}"
